@@ -754,8 +754,7 @@ impl WalletState {
         // digest is already B256, use it directly
         let sig = signer.sign_hash_sync(&digest)
             .map_err(|_| WalletError::MessageSigningFailed)?;
-
-        Ok(sig.to_string())
+         Ok(format!("0x{}", hex_encode(sig.as_bytes())))
     }
 
     pub fn verify_eip191_message(&mut self, message: &str, signature_hex: &str) -> Result<String, WalletError> {
@@ -781,19 +780,16 @@ impl WalletState {
         let pw = password.as_ref().and_then(|s| if s.is_empty() { None } else { Some(s.as_str()) });
         let signer = self.create_signer(pw, index)?;
 
-        let digest = EIP712::hash_eip712_message(json)
-            .map_err(|_| WalletError::Eip712StructHashError)?;
+        let digest = EIP712::hash_eip712_message(json)?;
 
         // digest is already B256, use it directly
         let sig = signer.sign_hash_sync(&digest)
             .map_err(|_| WalletError::MessageSigningFailed)?;
-
-        Ok(sig.to_string())
+         Ok(format!("0x{}", hex_encode(sig.as_bytes())))
     }
 
     pub fn create_eip712_message(&mut self, json: &str) -> Result<String, WalletError> {
-        let digest = EIP712::hash_eip712_message(json)
-            .map_err(|_| WalletError::Eip712StructHashError)?;
+        let digest = EIP712::hash_eip712_message(json)?;
         // digest is B256, convert to hex string with 0x prefix
         Ok(format!("0x{}", hex_encode(digest)))
     }
@@ -804,8 +800,7 @@ impl WalletState {
         let sig = Signature::try_from(sig_bytes.as_slice())
             .map_err(|_| WalletError::InvalidSignature)?;
 
-        let digest = EIP712::hash_eip712_message(json)
-            .map_err(|_| WalletError::Eip712StructHashError)?;
+        let digest = EIP712::hash_eip712_message(json)?;
 
         // digest is already B256, use it directly
         let recovered = sig.recover_from_prehash(&digest)
