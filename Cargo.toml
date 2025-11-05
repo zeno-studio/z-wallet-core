@@ -11,6 +11,10 @@ homepage = "https://zeno.pw"
 [lib]
 crate-type = ["cdylib", "rlib"]
 
+[features]
+default = []
+airgap = [] 
+
 [dependencies]
 
 alloy-signer-local = { version = "1.0.32", features = ["mnemonic"] }
@@ -22,7 +26,7 @@ alloy-consensus = "1.0.36"
 argon2 = "0.5.3"
 bip39 = { version = "1.1.0", features = [ "zeroize"] }
 chacha20poly1305 = "0.10.1"
-serde = { version = "1.0.225"}
+serde = { version = "1.0.225",features = ["derive"]}
 serde_json = { version = "1.0.145", default-features = false }
 js-sys = "0.3.80"
 zeroize = "1.8.1"

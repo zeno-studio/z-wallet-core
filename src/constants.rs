@@ -1,0 +1,10 @@
+pub const ARGON2_MEMORY: u32 = 12288; // KB
+pub const ARGON2_ITERATIONS: u32 = 4;
+pub const ARGON2_PARALLELISM: u32 = 2;
+pub const ARGON2_OUTPUT_LEN: usize = 32;
+pub const XCHACHA_SALT_LEN: usize = 16;
+pub const XCHACHA_XNONCE_LEN: usize = 24;
+pub const ENTROPY_128: u64= 128;
+pub const ENTROPY_256: u64 = 256;
+pub const DEFAULT_ENTROPY_BITS: u64 = ENTROPY_128;
+pub const DEFAULT_CACHE_DURATION: u64 = 900;

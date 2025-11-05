@@ -22,6 +22,8 @@ pub enum WalletError {
     InvalidSalt,
     #[error("Empty salt")]
     EmptySalt,
+    #[error("Invalid key length")]
+    InvalidKeyLength,
     #[error("Decryption failed")]
     DecryptionFailed,
     #[error("Encryption failed")]
@@ -167,19 +169,20 @@ impl WalletError {
             WalletError::EmptyNonce => 1006,
             WalletError::InvalidSalt => 1007,
             WalletError::EmptySalt => 1008,
-            WalletError::DecryptionFailed => 1009,
-            WalletError::EncryptionFailed => 1010,
-            WalletError::EntropyGenerationFailed => 1011,
-            WalletError::EmptyCiphertext => 1012,
-            WalletError::InvalidUtf8 => 1013,
-            WalletError::InvalidEntropyBits => 1014,
-            WalletError::MnemonicGenerationFailed => 1015,
-            WalletError::SignerBuildError => 1017,
-            WalletError::Argon2BuildError => 1018,
-            WalletError::PasswordHashError => 1019,
-            WalletError::SerializationError => 1020,
-            WalletError::InvalidHex => 1021,
-            WalletError::EmptyCacheTime => 1022,
+            WalletError::InvalidKeyLength => 1009,
+            WalletError::DecryptionFailed => 1010,
+            WalletError::EncryptionFailed => 1011,
+            WalletError::EntropyGenerationFailed => 1012,
+            WalletError::EmptyCiphertext => 1013,
+            WalletError::InvalidUtf8 => 1014,
+            WalletError::InvalidEntropyBits => 1015,
+            WalletError::MnemonicGenerationFailed => 1016,
+            WalletError::SignerBuildError => 1018,
+            WalletError::Argon2BuildError => 1019,
+            WalletError::PasswordHashError => 1020,
+            WalletError::SerializationError => 1021,
+            WalletError::InvalidHex => 1022,
+            WalletError::EmptyCacheTime => 1023,
 
             // JSON (2xxx)
             WalletError::JsonParseError => 2001,
