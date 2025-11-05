@@ -1,11 +1,11 @@
 [package]
-name = "z-wallet-sdk"
+name = "z-wallet-core"
 authors = ["zeno-studio <zenostudio@proton.me>"]
 version = "0.1.0"
 edition = "2024"
-description = "Crypto wallet sdk"
-keywords = ["wallet", "ethereum", "sdk"]
-repository = "https://github.com/zeno-studio/z-wallet-wasm"
+description = "Crypto wallet core"
+keywords = ["wallet", "ethereum", "core"]
+repository = "https://github.com/zeno-studio/z-wallet-core"
 homepage = "https://zeno.pw"
 
 [lib]
