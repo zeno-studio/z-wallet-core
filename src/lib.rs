@@ -426,7 +426,9 @@ impl CoreState {
             Err(_) => Err(CoreError::InvalidPassword),
         }
     }
-    //  #[cfg(feature = "airgap")]
+
+
+     #[cfg(feature = "airgap")]
     pub fn import_from_mnemonic(
         &mut self,
         mnemonic: &str,
@@ -464,5 +466,16 @@ impl CoreState {
             nonce: nonce_array,
             address0: Some(address),
         })
+    }
+
+     #[cfg(feature = "airgap")]
+    pub fn export_to_mnemonic(
+        &mut self,
+        password: Option<&str>,
+        now: u64,
+    ) -> Result<String, CoreError> {
+        let mnemonic = Zeroizing::new(self.get_mnemonic(password, now)?);
+        validate_mnemonic(&mnemonic)?;
+        Ok((*mnemonic).clone())
     }
 }
