@@ -1,59 +1,113 @@
 use core::fmt;
+use crate::constants::VERSION_TAG_LEN;
 
 /// CoreError carries a numeric code and a human-readable message.
 /// Internally we use strong typed variants; externally you can use `code()` and `message()`.
 #[derive(Debug)]
 pub enum CoreError {
-    // General
+    // General errors
+    /// The provided password is invalid
     InvalidPassword,
+    /// The provided password is empty
     EmptyPassword,
+    /// The derived key is invalid
     InvalidDerivedKey,
+    /// The derived key is empty
     EmptyDerivedKey,
+    /// The nonce is empty
     EmptyNonce,
+    /// The salt is empty
     EmptySalt,
+    /// The key length is invalid
     InvalidKeyLength,
+    /// Decryption failed
     DecryptionFailed,
+    /// Encryption failed
     EncryptionFailed,
+    /// Entropy generation failed
     EntropyGenerationFailed,
+    /// The ciphertext is empty
     EmptyCiphertext,
+    /// The UTF-8 string is invalid
     InvalidUtf8,
+    /// The entropy bits are invalid
     InvalidEntropyBits,
+    /// Mnemonic generation failed
     MnemonicGenerationFailed,
+    /// Signer build error
     SignerBuildError,
+    /// Argon2 build error
     Argon2BuildError,
+    /// Password hash error
     PasswordHashError,
+    /// Serialization error
     SerializationError,
+    /// The hex string is invalid
     InvalidHex,
+    /// The cache time is empty
     EmptyCacheTime,
-    MessageSigningFailed,  // 添加缺失的错误变体
+    /// Message signing failed
+    MessageSigningFailed,
 
-    // JSON
+    // JSON errors
+    /// JSON parsing error
     JsonParseError,
+    /// Vault parsing error
+    VaultParseError,
+    /// Vault has an invalid version
+    VaultInvalidVersion{version: [u8; VERSION_TAG_LEN]},
+    /// Base58 decoding error
+    Bs58DecodeError,
+    /// The vault is invalid
+    InvalidVault,
 
-    // Transaction
+    // Transaction errors
+    /// The address is invalid
     InvalidAddress,
+    /// The address is empty
     EmptyAddress,
+    /// The value is invalid
     InvalidValue,
+    /// The value is empty
     EmptyValue,
+    /// The gas price is invalid
     InvalidGasPrice,
+    /// The gas price is empty
     EmptyGasPrice,
+    /// The transaction data is invalid
     InvalidTxData,
+    /// The transaction data is empty
     EmptyTxData,
+    /// The max priority fee is invalid
     InvalidMaxPriorityFee,
+    /// The max priority fee is empty
     EmptyMaxPriorityFee,
+    /// The max fee is invalid
     InvalidMaxFee,
+    /// The max fee is empty
     EmptyMaxFee,
+    /// Signing transaction error
     SignTransactionError,
+    /// The access list is invalid
     InvalidAccessList,
+    /// The authorization list is invalid
     InvalidAuthorizationList,
+    /// The authorization list is empty
     EmptyAuthorizationList,
+    /// Value overflow
     ValueOverflow,
+    /// The chain ID is invalid
     InvalidChainId,
+    /// The gas limit is invalid
     InvalidGasLimit,
+    /// The signature is invalid
     InvalidSignature,
+    /// Recovery failed
     RecoverFailed,
+    /// Creating signature failed
     CreateSignatureFailed,
-    InvalidSignedAuthorizationList,  // 添加缺失的错误变体
+    /// The signed authorization list is invalid
+    InvalidSignedAuthorizationList,
 }
 
 impl fmt::Display for CoreError {
@@ -80,6 +134,11 @@ impl fmt::Display for CoreError {
             CoreError::InvalidHex => write!(f, "Core Error: Invalid hex"),
             CoreError::EmptyCacheTime => write!(f, "Core Error: Empty cache time"),
             CoreError::JsonParseError => write!(f, "Core Error: JSON parse error"),
+            CoreError::VaultInvalidVersion{version} => write!(f, "Core Error: Vault invalid version: {:?}", version),          
+            CoreError::VaultParseError => write!(f, "Core Error: Vault parse error"),
+            CoreError::Bs58DecodeError => write!(f, "Core Error: BS58 decode error"),
+            CoreError::InvalidVault => write!(f, "Core Error: Invalid vault"),
+            
             CoreError::InvalidAddress => write!(f, "Core Error: Invalid address"),
             CoreError::EmptyAddress => write!(f, "Core Error: Empty address"),
             CoreError::InvalidValue => write!(f, "Core Error: Invalid value"),

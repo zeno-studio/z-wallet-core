@@ -9,6 +9,15 @@ use alloy_signer_local::PrivateKeySigner;
 
 use crate::error::CoreError;
 
+/// Sign a message using EIP-191 standard
+///
+/// # Arguments
+/// * `signer` - The private key signer
+/// * `message` - The message to sign
+///
+/// # Returns
+/// * `Ok(String)` - The signature in hex format
+/// * `Err(CoreError)` - If there is an error during signing
 pub fn sign_eip191_message(
     signer: PrivateKeySigner,
     message: &str,
@@ -22,6 +31,15 @@ pub fn sign_eip191_message(
     Ok(format!("0x{}", hex_encode(sig.as_bytes())))
 }
 
+/// Verify an EIP-191 signed message
+///
+/// # Arguments
+/// * `message` - The original message
+/// * `signature_hex` - The signature in hex format
+///
+/// # Returns
+/// * `Ok(String)` - The recovered address in hex format
+/// * `Err(CoreError)` - If there is an error during verification
 pub fn verify_eip191_message(message: &str, signature_hex: &str) -> Result<String, CoreError> {
     let sig_bytes =
         hex_decode(signature_hex.trim_start_matches("0x")).map_err(|_| CoreError::InvalidHex)?;
@@ -42,7 +60,15 @@ pub fn verify_eip191_message(message: &str, signature_hex: &str) -> Result<Strin
     Ok(address_hex)
 }
 
-// 使用外部 EIP-712 crate 进行签名和验证
+/// Sign a message using EIP-712 standard
+///
+/// # Arguments
+/// * `signer` - The private key signer
+/// * `hash` - The hash of the EIP-712 message
+///
+/// # Returns
+/// * `Ok(String)` - The signature in hex format
+/// * `Err(CoreError)` - If there is an error during signing
 pub fn sign_eip712_message(
     signer: PrivateKeySigner,
     hash: &B256,
@@ -53,8 +79,15 @@ pub fn sign_eip712_message(
     Ok(format!("0x{}", hex_encode(sig.as_bytes())))
 }
 
-// 移除了 create_eip712_message 函数，因为我们不再需要创建 EIP-712 消息
-
+/// Verify an EIP-712 signed message
+///
+/// # Arguments
+/// * `hash` - The hash of the EIP-712 message
+/// * `signature_hex` - The signature in hex format
+///
+/// # Returns
+/// * `Ok(String)` - The recovered address in hex format
+/// * `Err(CoreError)` - If there is an error during verification
 pub fn verify_eip712_message(hash: &B256, signature_hex: &str) -> Result<String, CoreError> {
     let sig_bytes =
         hex_decode(signature_hex.trim_start_matches("0x")).map_err(|_| CoreError::InvalidHex)?;
