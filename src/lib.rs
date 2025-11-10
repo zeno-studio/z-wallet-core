@@ -129,7 +129,31 @@ pub struct Vault {
     pub ciphertext: Vec<u8>,
 }
 
+impl Default for Vault {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 impl Vault {
+
+    /// Create a new Vault instance with default values
+    ///
+    /// This function creates a new Vault instance with default configuration values.
+    /// Note that the vault will be in an uninitialized state with zeroed salt and nonce.
+    /// This is primarily used for deserialization purposes.
+    ///
+    /// # Returns
+    /// * `Vault` - A new Vault instance with default values
+    pub fn new() -> Self {
+        let salt = [0u8; ARGON2_SALT_LEN];
+        let nonce = [0u8; XCHACHA_XNONCE_LEN];
+        Vault {
+            version: VERSION_TAG_1.as_bytes().try_into().unwrap(),
+            salt,
+            nonce,
+            ciphertext: Vec::new(), 
+        }
+    }
     /// Serialize the vault to a Base58-encoded keystore string
     ///
     /// This method serializes the vault data into a byte array and encodes it using Base58
