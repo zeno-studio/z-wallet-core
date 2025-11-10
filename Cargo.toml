@@ -1,6 +1,6 @@
 [package]
 name = "z_wallet_core"
-authors = ["zeno-studio <zenostudio@proton.me>"]
+authors = ["Zeno Studio <zenostudio@proton.me>"]
 version = "0.1.0"
 edition = "2024"
 description = "Crypto wallet core"
