@@ -2874,7 +2874,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "z-wallet-core"
+name = "z_wallet_core"
 version = "0.1.0"
 dependencies = [
  "alloy-consensus",
