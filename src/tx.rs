@@ -150,8 +150,8 @@ pub fn sign_legacy_transaction(
 
         let access_list: AccessList = match access_list_json {
             None => AccessList::default(),
-            Some(ref s) if s.is_empty() => AccessList::default(),
-            Some(ref s) => serde_json::from_str(s).map_err(|_| CoreError::InvalidAccessList)?,
+            Some("") => AccessList::default(),
+            Some(s) => serde_json::from_str(s).map_err(|_| CoreError::InvalidAccessList)?,
         };
 
         let mut tx = TxEip1559 {
@@ -239,15 +239,15 @@ pub fn sign_legacy_transaction(
 
         let access_list: AccessList = match access_list_json {
             None => AccessList::default(),
-            Some(ref s) if s.is_empty() => AccessList::default(),
-            Some(ref s) => serde_json::from_str(s).map_err(|_| CoreError::InvalidAccessList)?,
+            Some("") => AccessList::default(),
+            Some(s) => serde_json::from_str(s).map_err(|_| CoreError::InvalidAccessList)?,
         };
 
          if authorization_list_json.trim().is_empty() {
             return Err(CoreError::InvalidAuthorizationList);
         }
 
-        let authorizations: Vec<Authorization> = serde_json::from_str(&authorization_list_json)
+        let authorizations: Vec<Authorization> = serde_json::from_str(authorization_list_json)
             .map_err(|_| CoreError::InvalidAuthorizationList)?;
        
 
@@ -303,7 +303,7 @@ pub fn sign_legacy_transaction(
 fn parse_bytes_opt(hex: Option< &str>) -> Result<Vec<u8>, CoreError> {
     match hex {
         None => Ok(Vec::new()),
-        Some(s) if s.is_empty() => Ok(Vec::new()),
+        Some("") => Ok(Vec::new()),
         Some(s) => {
             hex_decode(s.trim_start_matches("0x"))
                 .map_err(|_| CoreError::InvalidHex)

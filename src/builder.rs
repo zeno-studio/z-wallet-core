@@ -104,8 +104,7 @@ pub fn decrypt_xchacha(
     let plaintext = cipher
         .decrypt(&xnonce, ciphertext)
         .map_err(|_| CoreError::DecryptionFailed)?;
-
-    Ok(String::from_utf8(plaintext).map_err(|_| CoreError::DecryptionFailed)?)
+    String::from_utf8(plaintext).map_err(|_| CoreError::DecryptionFailed)
 }
 
 /// Generate random entropy bytes

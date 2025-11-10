@@ -31,43 +31,113 @@ pub use message::*;
 pub use tx::*;
 pub use validate::*;
 
-// Define WalletCore struct
-// This struct represents the core wallet functionality with encrypted storage
+/// Core wallet functionality with encrypted storage
+///
+/// This struct represents the core wallet functionality with encrypted storage.
+/// It manages the encrypted mnemonic phrase, derived keys, and related security parameters.
+/// The wallet uses Argon2 for key derivation and XChaCha20Poly1305 for encryption.
 #[derive(Debug, Clone)]
 pub struct WalletCore {
     /// Encrypted mnemonic phrase ciphertext
+    ///
+    /// This field stores the encrypted mnemonic phrase that represents the wallet.
+    /// It is None when no wallet has been created or loaded yet.
     pub ciphertext: Option<Vec<u8>>,
+    
     /// Derived key for encryption/decryption
+    ///
+    /// This field stores the derived key used for encryption and decryption operations.
+    /// The key is derived from the user's password using Argon2 and is cached for a
+    /// configurable duration. It is None when no key has been derived yet or when
+    /// the cache has expired.
     pub derived_key: Option<[u8; 32]>,
+    
     /// Salt used in key derivation
+    ///
+    /// This field stores the salt used in the Argon2 key derivation process.
+    /// The salt is generated randomly when a new wallet is created and is stored
+    /// alongside the encrypted ciphertext.
     pub salt: Option<[u8; constants::ARGON2_SALT_LEN]>,
+    
     /// Nonce for encryption
+    ///
+    /// This field stores the nonce used in the XChaCha20Poly1305 encryption process.
+    /// The nonce is generated randomly when a new wallet is created and is stored
+    /// alongside the encrypted ciphertext.
     pub nonce: Option<[u8; constants::XCHACHA_XNONCE_LEN]>,
+    
     /// Expiration time for cached key
+    ///
+    /// This field stores the Unix timestamp when the cached derived key will expire.
+    /// When this time is reached, the derived key will be zeroized and removed from memory.
     pub expire_time: Option<u64>,
+    
     /// Cache duration in seconds
+    ///
+    /// This field stores the duration for which the derived key should be cached in memory.
+    /// After this duration has passed, the key will be automatically zeroized and removed.
     pub cache_duration: Option<u64>,
+    
     /// Entropy bits for mnemonic generation
+    ///
+    /// This field stores the number of entropy bits used for mnemonic generation.
+    /// Valid values are 128 (12 words) or 256 (24 words).
     pub entropy_bits: Option<u64>,
 }
 
-// Define Vault struct
-// This struct represents an encrypted wallet vault for secure storage
+
+/// Implement Default trait for WalletCore
+///
+/// This implementation allows creating a new WalletCore instance with default values
+/// using the Default trait. It is equivalent to calling WalletCore::new().
+impl Default for WalletCore {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+/// Encrypted wallet vault for secure storage
+///
+/// This struct represents an encrypted wallet vault for secure storage and transfer.
+/// It contains all the necessary data to reconstruct a wallet, including the encrypted
+/// mnemonic phrase, salt, nonce, and version information. The vault can be serialized
+/// to a Base58-encoded string for easy storage and transfer.
 #[derive(Debug, Clone)]
 pub struct Vault {
     /// Version tag for vault format
+    ///
+    /// This field stores the version tag for the vault format. It is used to ensure
+    /// compatibility when deserializing vaults and to allow for future format changes.
     pub version: [u8; 7], //const VERSION_TAG_1: &str = "ZENO_v1"
+    
     /// Salt used in key derivation (16 bytes)
+    ///
+    /// This field stores the salt used in the Argon2 key derivation process.
+    /// The salt is generated randomly when a new vault is created.
     pub salt: [u8; constants::ARGON2_SALT_LEN], // Fixed length 16 bytes
+    
     /// Nonce for encryption (24 bytes)
+    ///
+    /// This field stores the nonce used in the XChaCha20Poly1305 encryption process.
+    /// The nonce is generated randomly when a new vault is created.
     pub nonce: [u8; constants::XCHACHA_XNONCE_LEN], // Fixed length 24 bytes
+    
     /// Encrypted mnemonic phrase ciphertext
+    ///
+    /// This field stores the encrypted mnemonic phrase that represents the wallet.
+    /// The mnemonic is encrypted using XChaCha20Poly1305 with a key derived from
+    /// the user's password.
     pub ciphertext: Vec<u8>,
 }
 
 impl Vault {
-    /// Construct keystore and return Base58 encoded string (suitable for QR codes)
-
+    /// Serialize the vault to a Base58-encoded keystore string
+    ///
+    /// This method serializes the vault data into a byte array and encodes it using Base58
+    /// for easy storage and transfer. The encoded string is suitable for QR codes.
+    ///
+    /// # Returns
+    /// * `Ok(String)` - The Base58-encoded keystore string
+    /// * `Err(CoreError)` - If the vault fields are not properly initialized
     pub fn to_keystore_string(&mut self) -> Result<String, CoreError> {
         // Check if fields are properly initialized (not zeroed)
         if self.salt.iter().all(|&b| b == 0) || 
@@ -88,7 +158,17 @@ impl Vault {
         Ok(bs58::encode(bytes).into_string())
     }
     
-    /// Parse vault from Base58 encoded keystore string
+    /// Deserialize a vault from a Base58-encoded keystore string
+    ///
+    /// This method decodes a Base58-encoded keystore string and reconstructs a Vault instance
+    /// from the serialized data. It validates the data format and version.
+    ///
+    /// # Arguments
+    /// * `keystore` - The Base58-encoded keystore string
+    ///
+    /// # Returns
+    /// * `Ok(Vault)` - The deserialized vault
+    /// * `Err(CoreError)` - If the keystore string is invalid or malformed
     pub fn from_keystore_string(keystore: &str) -> Result<Self, CoreError> {
         let bytes = bs58::decode(keystore)
             .into_vec()
@@ -127,6 +207,19 @@ impl Vault {
 // WalletCore implementation
 impl WalletCore {
     /// Create a new WalletCore instance with default values
+    ///
+    /// This function creates a new WalletCore instance with default configuration values.
+    /// The wallet will be in an uninitialized state with no ciphertext, derived key,
+    /// salt, or nonce. Default cache duration and entropy bits are set according to
+    /// the constants defined in the constants module.
+    ///
+    /// # Returns
+    /// * `WalletCore` - A new WalletCore instance with default values
+    ///
+    /// # Example
+    /// ```
+    /// let wallet = WalletCore::new();
+    /// ```
     pub fn new() -> WalletCore {
         WalletCore {
             ciphertext: None,
@@ -158,8 +251,8 @@ impl WalletCore {
         if ciphertext.is_empty() {
             return Err(CoreError::EmptyCiphertext);
         }
-        validate::validate_salt(salt.clone())?;
-        validate::validate_nonce(nonce.clone())?;
+        validate::validate_salt(salt)?;
+        validate::validate_nonce(nonce)?;
         self.derived_key = None;
         self.expire_time = None;
         self.cache_duration = Some(900);
@@ -178,7 +271,14 @@ impl WalletCore {
         self.cache_duration = Some(duration);
     }
 
-    /// Return cache duration
+    /// Get the cache duration for derived keys
+    ///
+    /// This function returns the cache duration for derived keys in seconds.
+    /// If no cache duration has been explicitly set, it returns the default
+    /// cache duration defined in the constants module.
+    ///
+    /// # Returns
+    /// * `u64` - The cache duration in seconds
     pub fn get_cache_duration(&self) -> u64 {
         self.cache_duration
             .unwrap_or(constants::DEFAULT_CACHE_DURATION)
@@ -202,6 +302,14 @@ impl WalletCore {
         }
     }
 
+    /// Get the entropy bits for mnemonic generation
+    ///
+    /// This function returns the entropy bits used for mnemonic generation.
+    /// If no entropy bits have been explicitly set, it returns the default
+    /// entropy bits defined in the constants module (128 bits).
+    ///
+    /// # Returns
+    /// * `u64` - The entropy bits (128 or 256)
     pub fn get_entropy_bits(&self) -> u64 {
         self.entropy_bits.unwrap_or(constants::DEFAULT_ENTROPY_BITS)
     }
@@ -214,6 +322,14 @@ impl WalletCore {
         Err(CoreError::EmptyCiphertext)
     }
 
+    /// Get the salt as a hex-encoded string
+    ///
+    /// This function returns the salt used in key derivation as a hex-encoded string.
+    /// If no salt has been set, it returns an EmptySalt error.
+    ///
+    /// # Returns
+    /// * `Ok(String)` - The hex-encoded salt
+    /// * `Err(CoreError)` - If no salt has been set
     pub fn get_salt(&self) -> Result<String, CoreError> {
         if let Some(s) = &self.salt {
             return Ok(hex_encode(s));
@@ -221,6 +337,14 @@ impl WalletCore {
         Err(CoreError::EmptySalt)
     }
 
+    /// Get the nonce as a hex-encoded string
+    ///
+    /// This function returns the nonce used in encryption as a hex-encoded string.
+    /// If no nonce has been set, it returns an EmptyNonce error.
+    ///
+    /// # Returns
+    /// * `Ok(String)` - The hex-encoded nonce
+    /// * `Err(CoreError)` - If no nonce has been set
     pub fn get_nonce(&self) -> Result<String, CoreError> {
         if let Some(n) = &self.nonce {
             return Ok(hex_encode(n));
@@ -242,13 +366,11 @@ impl WalletCore {
     /// # Arguments
     /// * `now` - The current Unix timestamp
     pub fn tick(&mut self, now: u64) {
-        if let Some(ct) = self.expire_time {
-            if now > ct {
-                if let Some(mut dk) = self.derived_key.take() {
-                    dk.zeroize();
-                }
-                self.expire_time = None;
+        if let Some(ct) = self.expire_time && now > ct {
+            if let Some(mut dk) = self.derived_key.take() {
+                dk.zeroize();
             }
+            self.expire_time = None;
         }
         if self.expire_time.is_none()
             && let Some(mut dk) = self.derived_key.take()
@@ -344,22 +466,36 @@ impl WalletCore {
         index: u32,
         now: u64,
     ) -> Result<String, CoreError> {
-        let mnemonic_str = match self.get_mnemonic(
+        let mnemonic_str = self.get_mnemonic(
             if password.is_empty() {
                 None
             } else {
                 Some(password)
             },
             now,
-        ) {
-            Ok(s) => s,
-            Err(e) => return Err(e),
-        };
+        )?;
         let signer = builder::mnemonic_to_signer(&mnemonic_str, index)?;
         Ok(format!("{:?}", signer.address())) // Use format instead of to_string
     }
 
     /// Verify password and cache derived key
+    ///
+    /// This function verifies the provided password by attempting to derive the encryption key
+    /// and decrypt the stored ciphertext. If successful, it caches the derived key for future
+    /// operations according to the configured cache duration.
+    ///
+    /// # Arguments
+    /// * `password` - The password to verify
+    /// * `now` - The current Unix timestamp for cache management
+    ///
+    /// # Returns
+    /// * `Ok(true)` - If the password is correct and verification succeeded
+    /// * `Ok(false)` - If the password is incorrect
+    /// * `Err(CoreError)` - If there is an error during the verification process
+    ///
+    /// # Security
+    /// This function implements secure key derivation using Argon2 and XChaCha20Poly1305
+    /// decryption. It also manages the caching of derived keys with automatic expiration.
     pub fn verify_password(&mut self, password: &str, now: u64) -> Result<bool, CoreError> {
         self.tick(now);
 
@@ -425,11 +561,7 @@ impl WalletCore {
         validate_password(new_pass)?;
         validate_password(old_pass)?;
 
-        let mut mnemonic = match self.get_mnemonic(Some(old_pass), now) {
-            Ok(s) => s,
-            Err(e) => return Err(e),
-        };
-
+        let mut mnemonic = self.get_mnemonic(Some(old_pass), now)?;
         let new_salt = builder::generate_entropy_bytes(ARGON2_SALT_LEN as u64)?;
         let new_nonce = builder::generate_entropy_bytes(XCHACHA_XNONCE_LEN as u64)?;
         let dkey = builder::password_kdf_argon2(new_pass, &new_salt)?;
@@ -547,7 +679,7 @@ impl WalletCore {
             .as_ref()
             .filter(|v| !v.is_empty())
             .ok_or(CoreError::EmptyDerivedKey)?;
-        let dkey = Zeroizing::new(d.clone());
+        let dkey = Zeroizing::new(*d);
         let nonce = self
             .nonce
             .as_ref()
@@ -558,7 +690,7 @@ impl WalletCore {
             .as_ref()
             .filter(|v| !v.is_empty())
             .ok_or(CoreError::EmptyCiphertext)?;
-        let decrypted = builder::decrypt_xchacha(&ct, &dkey, &nonce.as_slice())?;
+        let decrypted = builder::decrypt_xchacha(ct, &dkey, nonce.as_slice())?;
         Ok(decrypted)
     }
 
@@ -577,7 +709,7 @@ impl WalletCore {
             .as_ref()
             .filter(|v| !v.is_empty())
             .ok_or(CoreError::EmptySalt)?;
-        let dkey = builder::password_kdf_argon2(password, &salt.as_slice())?;
+        let dkey = builder::password_kdf_argon2(password, salt.as_slice())?;
         let nonce = self
             .nonce
             .as_ref()
@@ -589,7 +721,7 @@ impl WalletCore {
             .filter(|v| !v.is_empty())
             .ok_or(CoreError::EmptyCiphertext)?;
 
-        match builder::decrypt_xchacha(&ct, &dkey, &nonce.as_slice()) {
+        match builder::decrypt_xchacha(ct, &dkey, nonce.as_slice()) {
             Ok(decrypted) => {
                 self.derived_key = Some(*dkey);
                 // key will be dropped
