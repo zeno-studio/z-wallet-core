@@ -9,7 +9,6 @@ use alloc::string::String;
 use alloc::vec::Vec;
 
 // Import third-party libraries
-use alloy_primitives::Address;
 use alloy_signer_local::LocalSignerError;
 use alloy_signer_local::{MnemonicBuilder, PrivateKeySigner, coins_bip39::English};
 use hex::encode as hex_encode;
@@ -423,7 +422,7 @@ impl WalletCore {
     /// * `now` - The current Unix timestamp
     ///
     /// # Returns
-    /// * `Ok((Vault, Address))` - The created vault and the wallet address
+    /// * `Ok((Vault, Address, String))` - The created vault and the wallet address
     /// * `Err(CoreError)` - If there is an error during creation
     pub fn create_vault(
         &mut self,
@@ -431,7 +430,7 @@ impl WalletCore {
         entropy_bits: u64,
         duration: u64,
         now: u64,
-    ) -> Result<(Vault, Address), CoreError> {
+    ) -> Result<(Vault, String, String), CoreError> {
         validate_entropy(entropy_bits)?;
         validate_password(password)?;
         let salt = builder::generate_entropy_bytes(ARGON2_SALT_LEN as u64)?;
@@ -439,7 +438,8 @@ impl WalletCore {
         let entropy = builder::generate_entropy_bits(entropy_bits)?;
         let mnemonic = builder::entropy_to_mnemonic(&entropy)?;
         let signer = builder::mnemonic_to_signer(&mnemonic, 0)?;
-        let address = signer.address(); // Use format instead of to_string
+        let path = format!("{DEFAULT_DERIVATION_PATH_PREFIX}{}", 0);
+        let address = format!("{:?}", signer.address()); 
         let dkey = builder::password_kdf_argon2(password, &salt)?;
         let ciphertext = builder::encrypt_xchacha(&mnemonic, &dkey, &nonce)?;
 
@@ -469,7 +469,7 @@ impl WalletCore {
             nonce: nonce_array,
         };
 
-        Ok((vault, address))
+        Ok((vault, address, path))
     }
 
     /// Derive an account from the mnemonic phrase
@@ -480,14 +480,14 @@ impl WalletCore {
     /// * `now` - The current Unix timestamp
     ///
     /// # Returns
-    /// * `Ok(String)` - The derived account address
+    /// * `Ok(String, String)` - The derived account address and derivation path
     /// * `Err(CoreError)` - If there is an error during derivation
     pub fn derive_account(
         &mut self,
         password: &str,
         index: u32,
         now: u64,
-    ) -> Result<String, CoreError> {
+    ) -> Result<(String, String), CoreError> {
         let mnemonic_str = self.get_mnemonic(
             if password.is_empty() {
                 None
@@ -497,7 +497,9 @@ impl WalletCore {
             now,
         )?;
         let signer = builder::mnemonic_to_signer(&mnemonic_str, index)?;
-        Ok(format!("{:?}", signer.address())) // Use format instead of to_string
+        let address = format!("{:?}", signer.address());
+        let path = format!("{DEFAULT_DERIVATION_PATH_PREFIX}{}", index);
+        Ok((address, path)) // Use format instead of to_string
     }
 
     /// Verify password and cache derived key
@@ -775,12 +777,13 @@ impl WalletCore {
         password: &str,
         duration: u64,
         now: u64,
-    ) -> Result<(Vault,String), CoreError> {
+    ) -> Result<(Vault,String,String), CoreError> {
         // Validate mnemonic
         validate_mnemonic(mnemonic)?;
 
         let signer = builder::mnemonic_to_signer(mnemonic, 0)?;
         let address = format!("{:?}", signer.address()); // Use format instead of to_string
+        let path = format!("{DEFAULT_DERIVATION_PATH_PREFIX}{}", 0);
         let salt = builder::generate_entropy_bytes(ARGON2_SALT_LEN as u64)?;
         let nonce = builder::generate_entropy_bytes(XCHACHA_XNONCE_LEN as u64)?;
         let dkey = builder::password_kdf_argon2(password, &salt)?;
@@ -805,7 +808,7 @@ impl WalletCore {
             ciphertext,
             salt: salt_array,
             nonce: nonce_array,
-        },address))
+        },address,path))
     }
 
     #[cfg(feature = "airgap")]

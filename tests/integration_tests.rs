@@ -30,13 +30,13 @@ fn test_wallet_core_create_vault() {
     }
     assert!(result.is_ok());
     
-    let (vault, address) = result.unwrap();
+    let (vault, address, _) = result.unwrap();
     assert!(!vault.ciphertext.is_empty());
     assert_eq!(vault.salt.len(), ARGON2_SALT_LEN);
     assert_eq!(vault.nonce.len(), XCHACHA_XNONCE_LEN);
     // Address is now an alloy_primitives::Address, which doesn't have is_zero()
     // We'll just check that it's not the zero address
-    assert!(!address.is_zero());
+    assert!(!address.is_empty());
     
     // Check that wallet state is updated through public methods
     assert!(wallet.get_ciphertext().is_ok());
@@ -87,7 +87,7 @@ fn test_wallet_core_derive_account() {
     let derive_result = wallet.derive_account(password, index, now);
     assert!(derive_result.is_ok());
     
-    let address = derive_result.unwrap();
+    let (address, _) = derive_result.unwrap();
     assert!(!address.is_empty());
     assert!(address.starts_with("0x"));
 }
@@ -146,7 +146,7 @@ fn test_wallet_core_import_export_mnemonic() {
     let import_result = new_wallet.import_from_mnemonic(&mnemonic, password, duration, now);
     assert!(import_result.is_ok());
     
-    let (imported_vault, _) = import_result.unwrap();
+    let (imported_vault, _,_) = import_result.unwrap();
     assert!(!imported_vault.ciphertext.is_empty());
 }
 

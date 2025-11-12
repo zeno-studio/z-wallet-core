@@ -19,3 +19,5 @@ pub const DEFAULT_CACHE_DURATION: u64 = 900; // Default cache duration in second
 // Version parameters
 pub const VERSION_TAG_1: &str = "ZENO_v1"; // Version tag
 pub const VERSION_TAG_LEN: usize = 7; // Version tag length in bytes
+
+pub const DEFAULT_DERIVATION_PATH_PREFIX: &str = "m/44'/60'/0'/0/";
