@@ -38,6 +38,11 @@ pub use validate::*;
 /// The wallet uses Argon2 for key derivation and XChaCha20Poly1305 for encryption.
 #[derive(Debug, Clone)]
 pub struct WalletCore {
+    /// Version tag for vault format
+    /// 
+    /// This field stores the version tag for the vault format. It is used to ensure
+    /// compatibility when deserializing vaults and to allow for future format changes.
+    pub version: Option<[u8; 7]>,
     /// Encrypted mnemonic phrase ciphertext
     ///
     /// This field stores the encrypted mnemonic phrase that represents the wallet.
@@ -203,12 +208,9 @@ impl Vault {
             return Err(CoreError::VaultParseError);
         }
 
-        let const_version: [u8; 7] = VERSION_TAG_1.as_bytes().try_into().unwrap();
         let mut offset = 0;
         let version = bytes[offset..offset + VERSION_TAG_LEN].try_into().unwrap();
-        if version != const_version {
-            return Err(CoreError::VaultInvalidVersion { version });
-        }
+        validate::validate_version(version)?;
         offset += VERSION_TAG_LEN;
 
         let salt = bytes[offset..offset + ARGON2_SALT_LEN].try_into().unwrap();
@@ -239,10 +241,9 @@ impl WalletCore {
     ///
     /// # Returns
     /// * `WalletCore` - A new WalletCore instance with default values
-    ///
-
     pub fn new() -> WalletCore {
         WalletCore {
+            version: None,
             ciphertext: None,
             derived_key: None,
             salt: None,
@@ -257,30 +258,28 @@ impl WalletCore {
     ///
     /// # Arguments
     /// * `ciphertext` - The encrypted mnemonic phrase
-    /// * `salt` - The salt used for key derivation (16 bytes)
-    /// * `nonce` - The nonce used for encryption (24 bytes)
     ///
     /// # Returns
     /// * `Ok(())` if the vault is loaded successfully
     /// * `Err(CoreError)` if there is an error during loading
     pub fn load_vault(
         &mut self,
-        ciphertext: Vec<u8>,
-        salt: [u8; constants::ARGON2_SALT_LEN], // Fixed length 16 bytes
-        nonce: [u8; constants::XCHACHA_XNONCE_LEN], // Fixed length 24 bytes
+        vault: Vault,
     ) -> Result<(), CoreError> {
-        if ciphertext.is_empty() {
+        if vault.ciphertext.is_empty() {
             return Err(CoreError::EmptyCiphertext);
         }
-        validate::validate_salt(salt)?;
-        validate::validate_nonce(nonce)?;
+        validate::validate_salt(vault.salt)?;
+        validate::validate_nonce(vault.nonce)?;
+        validate::validate_version(vault.version)?;
         self.derived_key = None;
         self.expire_time = None;
-        self.cache_duration = Some(900);
-        self.entropy_bits = Some(128);
-        self.ciphertext = Some(ciphertext);
-        self.salt = Some(salt);
-        self.nonce = Some(nonce);
+        self.cache_duration = Some(constants::DEFAULT_CACHE_DURATION);
+        self.entropy_bits = Some(constants::DEFAULT_ENTROPY_BITS);
+        self.ciphertext = Some(vault.ciphertext);
+        self.salt = Some(vault.salt);
+        self.nonce = Some(vault.nonce);
+        self.version = Some(vault.version);
         Ok(())
     }
 
@@ -462,6 +461,7 @@ impl WalletCore {
         self.cache_duration = Some(duration);
         self.entropy_bits = Some(entropy_bits);
         let const_version: [u8; 7] = VERSION_TAG_1.as_bytes().try_into().unwrap();
+        self.version = Some(const_version);
         let vault = Vault {
             version: const_version,
             ciphertext,

@@ -1,9 +1,10 @@
 extern crate alloc;
 
 use crate::{CoreError};
-use crate::constants::{ENTROPY_128, ENTROPY_256, ARGON2_SALT_LEN,XCHACHA_XNONCE_LEN};
+use crate::constants::{VERSION_TAG_1, ENTROPY_128, ENTROPY_256, ARGON2_SALT_LEN,XCHACHA_XNONCE_LEN};
 use bip39::Mnemonic;
 use core::str::FromStr;
+use alloc::string::{ToString};
 
 /// Validate entropy bits
 ///
@@ -103,4 +104,14 @@ pub fn validate_mnemonic(mnemonic: &str) -> Result<(), CoreError> {
         ENTROPY_128 | ENTROPY_256 => Ok(()),
         _ => Err(CoreError::InvalidEntropyBits),
     }
+}
+
+
+pub fn validate_version(version: [u8; 7]) -> Result<(), CoreError>  {
+    let const_version: [u8; 7] = VERSION_TAG_1.as_bytes().try_into().unwrap();
+    if version != const_version {
+        let version_str = alloc::string::String::from_utf8_lossy(&version).to_string();
+        return Err(CoreError::VaultInvalidVersion { version: version_str });
+    }  
+    Ok(())
 }

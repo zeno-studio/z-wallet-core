@@ -1,5 +1,4 @@
 use core::fmt;
-use crate::constants::VERSION_TAG_LEN;
 
 /// CoreError carries a numeric code and a human-readable message.
 /// Internally we use strong typed variants; externally you can use `code()` and `message()`.
@@ -55,7 +54,7 @@ pub enum CoreError {
     /// Vault parsing error
     VaultParseError,
     /// Vault has an invalid version
-    VaultInvalidVersion{version: [u8; VERSION_TAG_LEN]},
+    VaultInvalidVersion{version: alloc::string::String},
     /// Base58 decoding error
     Bs58DecodeError,
     /// The vault is invalid
@@ -108,6 +107,7 @@ pub enum CoreError {
     CreateSignatureFailed,
     /// The signed authorization list is invalid
     InvalidSignedAuthorizationList,
+
 }
 
 impl fmt::Display for CoreError {
@@ -134,11 +134,10 @@ impl fmt::Display for CoreError {
             CoreError::InvalidHex => write!(f, "Core Error: Invalid hex"),
             CoreError::EmptyCacheTime => write!(f, "Core Error: Empty cache time"),
             CoreError::JsonParseError => write!(f, "Core Error: JSON parse error"),
-            CoreError::VaultInvalidVersion{version} => write!(f, "Core Error: Vault invalid version: {:?}", version),          
+            CoreError::VaultInvalidVersion{version} => write!(f, "Core Error: Vault invalid version: {}", version),          
             CoreError::VaultParseError => write!(f, "Core Error: Vault parse error"),
             CoreError::Bs58DecodeError => write!(f, "Core Error: BS58 decode error"),
-            CoreError::InvalidVault => write!(f, "Core Error: Invalid vault"),
-            
+            CoreError::InvalidVault => write!(f, "Core Error: Invalid vault"),   
             CoreError::InvalidAddress => write!(f, "Core Error: Invalid address"),
             CoreError::EmptyAddress => write!(f, "Core Error: Empty address"),
             CoreError::InvalidValue => write!(f, "Core Error: Invalid value"),
