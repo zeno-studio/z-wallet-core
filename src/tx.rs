@@ -12,7 +12,7 @@ use alloy_signer::SignerSync;
 use core::str::FromStr;     
 use alloy_signer_local::PrivateKeySigner;
 use hex::{decode as hex_decode, encode as hex_encode};
-use serde_json;
+use serde_json_core;
 
 use crate::error::CoreError;
 
@@ -151,7 +151,7 @@ pub fn sign_legacy_transaction(
         let access_list: AccessList = match access_list_json {
             None => AccessList::default(),
             Some("") => AccessList::default(),
-            Some(s) => serde_json::from_str(s).map_err(|_| CoreError::InvalidAccessList)?,
+            Some(s) => serde_json_core::from_str(s).map_err(|_| CoreError::InvalidAccessList)?.0,
         };
 
         let mut tx = TxEip1559 {
@@ -240,16 +240,15 @@ pub fn sign_legacy_transaction(
         let access_list: AccessList = match access_list_json {
             None => AccessList::default(),
             Some("") => AccessList::default(),
-            Some(s) => serde_json::from_str(s).map_err(|_| CoreError::InvalidAccessList)?,
+            Some(s) => serde_json_core::from_str(s).map_err(|_| CoreError::InvalidAccessList)?.0,
         };
 
          if authorization_list_json.trim().is_empty() {
             return Err(CoreError::InvalidAuthorizationList);
         }
 
-        let authorizations: Vec<Authorization> = serde_json::from_str(authorization_list_json)
-            .map_err(|_| CoreError::InvalidAuthorizationList)?;
-       
+        let authorizations: Vec<Authorization> = serde_json_core::from_str(authorization_list_json)
+            .map_err(|_| CoreError::InvalidAuthorizationList)?.0;
 
         let mut authorization_list: Vec<SignedAuthorization> =
             Vec::with_capacity(authorizations.len());

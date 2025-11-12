@@ -14,6 +14,7 @@ use alloy_signer_local::LocalSignerError;
 use alloy_signer_local::{MnemonicBuilder, PrivateKeySigner, coins_bip39::English};
 use hex::encode as hex_encode;
 use zeroize::{Zeroize, Zeroizing};
+use serde::{Deserialize, Serialize};
 
 // Import local modules
 pub mod builder;
@@ -101,7 +102,7 @@ impl Default for WalletCore {
 /// It contains all the necessary data to reconstruct a wallet, including the encrypted
 /// mnemonic phrase, salt, nonce, and version information. The vault can be serialized
 /// to a Base58-encoded string for easy storage and transfer.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Vault {
     /// Version tag for vault format
     ///
@@ -240,10 +241,7 @@ impl WalletCore {
     /// # Returns
     /// * `WalletCore` - A new WalletCore instance with default values
     ///
-    /// # Example
-    /// ```
-    /// let wallet = WalletCore::new();
-    /// ```
+
     pub fn new() -> WalletCore {
         WalletCore {
             ciphertext: None,
@@ -769,7 +767,7 @@ impl WalletCore {
     /// * `now` - The current Unix timestamp
     ///
     /// # Returns
-    /// * `Ok(Vault)` - The created vault
+    /// * `Ok((Vault, String))` - The created vault and the address
     /// * `Err(CoreError)` - If there is an error during import
     pub fn import_from_mnemonic(
         &mut self,
@@ -777,13 +775,12 @@ impl WalletCore {
         password: &str,
         duration: u64,
         now: u64,
-    ) -> Result<Vault, CoreError> {
+    ) -> Result<(Vault,String), CoreError> {
         // Validate mnemonic
         validate_mnemonic(mnemonic)?;
 
         let signer = builder::mnemonic_to_signer(mnemonic, 0)?;
         let address = format!("{:?}", signer.address()); // Use format instead of to_string
-
         let salt = builder::generate_entropy_bytes(ARGON2_SALT_LEN as u64)?;
         let nonce = builder::generate_entropy_bytes(XCHACHA_XNONCE_LEN as u64)?;
         let dkey = builder::password_kdf_argon2(password, &salt)?;
@@ -803,12 +800,12 @@ impl WalletCore {
         self.entropy_bits = Some(128); // Default to 128 bits
 
         let const_version: [u8; 7] = VERSION_TAG_1.as_bytes().try_into().unwrap();
-        Ok(Vault {
+        Ok((Vault {
             version: const_version,
             ciphertext,
             salt: salt_array,
             nonce: nonce_array,
-        })
+        },address))
     }
 
     #[cfg(feature = "airgap")]

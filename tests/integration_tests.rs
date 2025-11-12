@@ -12,7 +12,6 @@
 extern crate alloc;
 
 use z_wallet_core::{WalletCore};
-use z_wallet_core::error::CoreError;
 use z_wallet_core::constants::{
     ENTROPY_128, ARGON2_SALT_LEN, XCHACHA_XNONCE_LEN
 };
@@ -147,7 +146,7 @@ fn test_wallet_core_import_export_mnemonic() {
     let import_result = new_wallet.import_from_mnemonic(&mnemonic, password, duration, now);
     assert!(import_result.is_ok());
     
-    let imported_vault = import_result.unwrap();
+    let (imported_vault, _) = import_result.unwrap();
     assert!(!imported_vault.ciphertext.is_empty());
 }
 
