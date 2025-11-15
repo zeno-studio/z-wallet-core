@@ -21,7 +21,7 @@ fn test_wallet_core_create_vault() {
     let mut wallet = WalletCore::new();
     let password = "test_password";
     let entropy_bits = ENTROPY_128;
-    let duration = 3600u64;
+    let duration = Some(3600u64);
     let now = 1000u64;
     
     let result = wallet.create_vault(password, entropy_bits, duration, now);
@@ -43,7 +43,7 @@ fn test_wallet_core_create_vault() {
     assert!(wallet.has_derived_key());
     assert!(wallet.get_salt().is_ok());
     assert!(wallet.get_nonce().is_ok());
-    assert_eq!(wallet.get_cache_duration(), duration);
+    assert_eq!(wallet.get_cache_duration(), duration.unwrap());
     assert_eq!(wallet.get_entropy_bits(), entropy_bits);
 }
 
@@ -52,7 +52,7 @@ fn test_wallet_core_verify_password() {
     let mut wallet = WalletCore::new();
     let password = "test_password";
     let entropy_bits = ENTROPY_128;
-    let duration = 3600u64;
+    let duration = Some(3600u64);
     let now = 1000u64;
     
     // First create a vault
@@ -75,7 +75,7 @@ fn test_wallet_core_derive_account() {
     let mut wallet = WalletCore::new();
     let password = "test_password";
     let entropy_bits = ENTROPY_128;
-    let duration = 3600u64;
+    let duration = Some(3600u64);
     let now = 1000u64;
     let index = 0u32;
     
@@ -98,7 +98,7 @@ fn test_wallet_core_change_password() {
     let old_password = "old_password";
     let new_password = "new_password";
     let entropy_bits = ENTROPY_128;
-    let duration = 3600u64;
+    let duration = Some(3600u64);
     let now = 1000u64;
     
     // First create a vault
@@ -121,13 +121,68 @@ fn test_wallet_core_change_password() {
     assert_eq!(old_verify_result.unwrap(), false);
 }
 
+#[test]
+fn test_wallet_core_import_vault() {
+    let mut wallet = WalletCore::new();
+    let password = "test_password";
+    let entropy_bits = ENTROPY_128;
+    let duration = Some(3600u64);
+    let now = 1000u64;
+    
+    // First create a vault
+    let create_result = wallet.create_vault(password, entropy_bits, duration, now);
+    assert!(create_result.is_ok());
+    
+    let (vault, original_address, _) = create_result.unwrap();
+    
+    // Create a new wallet and import the vault
+    let mut new_wallet = WalletCore::new();
+    let import_result = new_wallet.import_vault(password, vault, duration, now);
+    assert!(import_result.is_ok());
+    
+    let (imported_address, _) = import_result.unwrap();
+    assert_eq!(original_address, imported_address);
+    
+    // Check that the new wallet has the correct state
+    assert!(new_wallet.has_derived_key());
+    assert_eq!(new_wallet.get_cache_duration(), duration.unwrap());
+}
+
+#[test]
+fn test_wallet_core_verify_password_cache() {
+    let mut wallet = WalletCore::new();
+    let password = "test_password";
+    let entropy_bits = ENTROPY_128;
+    let duration = Some(3600u64);
+    let now = 1000u64;
+    
+    // First create a vault
+    let create_result = wallet.create_vault(password, entropy_bits, duration, now);
+    assert!(create_result.is_ok());
+    
+    // Test correct password
+    let verify_result = wallet.verify_password(password, now);
+    assert!(verify_result.is_ok());
+    assert_eq!(verify_result.unwrap(), true);
+    
+    // Test wrong password
+    let wrong_verify_result = wallet.verify_password("wrong_password", now);
+    assert!(wrong_verify_result.is_ok());
+    assert_eq!(wrong_verify_result.unwrap(), false);
+    
+    // Test cache expiration
+    let future_time = now + duration.unwrap() + 1;
+    wallet.tick(future_time);
+    assert!(!wallet.has_derived_key());
+}
+
 #[cfg(feature = "airgap")]
 #[test]
 fn test_wallet_core_import_export_mnemonic() {
     let mut wallet = WalletCore::new();
     let password = "test_password";
     let entropy_bits = ENTROPY_128;
-    let duration = 3600u64;
+    let duration = Some(3600u64);
     let now = 1000u64;
     
     // First create a vault
@@ -143,7 +198,7 @@ fn test_wallet_core_import_export_mnemonic() {
     
     // Import from mnemonic (this would be a separate wallet instance in real usage)
     let mut new_wallet = WalletCore::new();
-    let import_result = new_wallet.import_from_mnemonic(&mnemonic, password, duration, now);
+    let import_result = new_wallet.import_from_mnemonic(&mnemonic, password, duration.unwrap(), now);
     assert!(import_result.is_ok());
     
     let (imported_vault, _,_) = import_result.unwrap();
@@ -156,7 +211,7 @@ fn test_create_vault_and_export_mnemonic() {
     let mut wallet = WalletCore::new();
     let password = "test_password";
     let entropy_bits = ENTROPY_128;
-    let duration = 3600u64;
+    let duration = Some(3600u64);
     let now = 1000u64;
     
     // First create a vault

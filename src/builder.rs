@@ -92,7 +92,7 @@ pub fn decrypt_xchacha(
     ciphertext: &[u8],
     dkey: &Zeroizing<[u8; constants::ARGON2_OUTPUT_LEN]>,
     nonce: &[u8],
-) -> Result<String, CoreError> {
+) -> Result<Zeroizing<String>, CoreError> {
     let cipher = XChaCha20Poly1305::new_from_slice(dkey.as_slice())
         .map_err(|_| CoreError::InvalidKeyLength)?;
 
@@ -104,7 +104,7 @@ pub fn decrypt_xchacha(
     let plaintext = cipher
         .decrypt(&xnonce, ciphertext)
         .map_err(|_| CoreError::DecryptionFailed)?;
-    String::from_utf8(plaintext).map_err(|_| CoreError::DecryptionFailed)
+    Ok(Zeroizing::new(String::from_utf8(plaintext).map_err(|_| CoreError::DecryptionFailed)?))
 }
 
 /// Generate random entropy bytes

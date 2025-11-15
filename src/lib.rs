@@ -6,14 +6,15 @@ extern crate alloc;
 // Import standard library modules
 use alloc::format;
 use alloc::string::String;
+use alloc::string::ToString;
 use alloc::vec::Vec;
 
 // Import third-party libraries
 use alloy_signer_local::LocalSignerError;
 use alloy_signer_local::{MnemonicBuilder, PrivateKeySigner, coins_bip39::English};
 use hex::encode as hex_encode;
-use zeroize::{Zeroize, Zeroizing};
 use serde::{Deserialize, Serialize};
+use zeroize::{Zeroize, Zeroizing};
 
 // Import local modules
 pub mod builder;
@@ -39,7 +40,7 @@ pub use validate::*;
 #[derive(Debug, Clone)]
 pub struct WalletCore {
     /// Encrypted wallet vault
-    /// 
+    ///
     /// This field stores the encrypted wallet vault.
     /// The vault contains the encrypted mnemonic phrase, salt, nonce, and version information.
     pub vault: Vault,
@@ -51,26 +52,25 @@ pub struct WalletCore {
     /// configurable duration. It is None when no key has been derived yet or when
     /// the cache has expired.
     pub derived_key: Option<[u8; 32]>,
-       
+
     /// Expiration time for cached key
     ///
     /// This field stores the Unix timestamp when the cached derived key will expire.
     /// When this time is reached, the derived key will be zeroized and removed from memory.
     pub expire_time: Option<u64>,
-    
+
     /// Cache duration in seconds
     ///
     /// This field stores the duration for which the derived key should be cached in memory.
     /// After this duration has passed, the key will be automatically zeroized and removed.
     pub cache_duration: Option<u64>,
-    
+
     /// Entropy bits for mnemonic generation
     ///
     /// This field stores the number of entropy bits used for mnemonic generation.
     /// Valid values are 128 (12 words) or 256 (24 words).
     pub entropy_bits: Option<u64>,
 }
-
 
 /// Implement Default trait for WalletCore
 ///
@@ -94,19 +94,19 @@ pub struct Vault {
     /// This field stores the version tag for the vault format. It is used to ensure
     /// compatibility when deserializing vaults and to allow for future format changes.
     pub version: [u8; 7], //const VERSION_TAG_1: &str = "ZENO_v1"
-    
+
     /// Salt used in key derivation (16 bytes)
     ///
     /// This field stores the salt used in the Argon2 key derivation process.
     /// The salt is generated randomly when a new vault is created.
     pub salt: [u8; constants::ARGON2_SALT_LEN], // Fixed length 16 bytes
-    
+
     /// Nonce for encryption (24 bytes)
     ///
     /// This field stores the nonce used in the XChaCha20Poly1305 encryption process.
     /// The nonce is generated randomly when a new vault is created.
     pub nonce: [u8; constants::XCHACHA_XNONCE_LEN], // Fixed length 24 bytes
-    
+
     /// Encrypted mnemonic phrase ciphertext
     ///
     /// This field stores the encrypted mnemonic phrase that represents the wallet.
@@ -121,7 +121,6 @@ impl Default for Vault {
     }
 }
 impl Vault {
-
     /// Create a new Vault instance with default values
     ///
     /// This function creates a new Vault instance with default configuration values.
@@ -137,7 +136,7 @@ impl Vault {
             version: VERSION_TAG_1.as_bytes().try_into().unwrap(),
             salt,
             nonce,
-            ciphertext: Vec::new(), 
+            ciphertext: Vec::new(),
         }
     }
     /// Serialize the vault to a Base58-encoded keystore string
@@ -150,9 +149,10 @@ impl Vault {
     /// * `Err(CoreError)` - If the vault fields are not properly initialized
     pub fn to_keystore_string(&mut self) -> Result<String, CoreError> {
         // Check if fields are properly initialized (not zeroed)
-        if self.salt.iter().all(|&b| b == 0) || 
-           self.nonce.iter().all(|&b| b == 0) || 
-           self.ciphertext.is_empty() {
+        if self.salt.iter().all(|&b| b == 0)
+            || self.nonce.iter().all(|&b| b == 0)
+            || self.ciphertext.is_empty()
+        {
             return Err(CoreError::InvalidVault);
         }
         let const_version: [u8; 7] = VERSION_TAG_1.as_bytes().try_into().unwrap();
@@ -167,7 +167,7 @@ impl Vault {
 
         Ok(bs58::encode(bytes).into_string())
     }
-    
+
     /// Deserialize a vault from a Base58-encoded keystore string
     ///
     /// This method decodes a Base58-encoded keystore string and reconstructs a Vault instance
@@ -213,9 +213,7 @@ impl Vault {
     pub fn verify_password(&self, password: &str) -> Result<bool, CoreError> {
         let dkey = builder::password_kdf_argon2(password, &self.salt)?;
         match builder::decrypt_xchacha(&self.ciphertext, &dkey, &self.nonce) {
-            Ok(_) => {
-                Ok(true)
-            }
+            Ok(_) => Ok(true),
             Err(_) => Ok(false),
         }
     }
@@ -250,10 +248,7 @@ impl WalletCore {
     /// # Returns
     /// * `Ok(())` if the vault is loaded successfully
     /// * `Err(CoreError)` if there is an error during loading
-    pub fn load_vault(
-        &mut self,
-        vault: Vault,
-    ) -> Result<(), CoreError> {
+    pub fn load_vault(&mut self, vault: Vault) -> Result<(), CoreError> {
         if vault.ciphertext.is_empty() {
             return Err(CoreError::EmptyCiphertext);
         }
@@ -371,7 +366,9 @@ impl WalletCore {
     /// # Arguments
     /// * `now` - The current Unix timestamp
     pub fn tick(&mut self, now: u64) {
-        if let Some(ct) = self.expire_time && now > ct {
+        if let Some(ct) = self.expire_time
+            && now > ct
+        {
             if let Some(mut dk) = self.derived_key.take() {
                 dk.zeroize();
             }
@@ -412,7 +409,7 @@ impl WalletCore {
         &mut self,
         password: &str,
         entropy_bits: u64,
-        duration: u64,
+        duration: Option<u64>,
         now: u64,
     ) -> Result<(Vault, String, String), CoreError> {
         validate_entropy(entropy_bits)?;
@@ -423,7 +420,7 @@ impl WalletCore {
         let mnemonic = builder::entropy_to_mnemonic(&entropy)?;
         let signer = builder::mnemonic_to_signer(&mnemonic, 0)?;
         let path = format!("{DEFAULT_DERIVATION_PATH_PREFIX}{}", 0);
-        let address = format!("{:?}", signer.address()); 
+        let address = format!("{:?}", signer.address());
         let dkey = builder::password_kdf_argon2(password, &salt)?;
         let ciphertext = builder::encrypt_xchacha(&mnemonic, &dkey, &nonce)?;
 
@@ -438,11 +435,19 @@ impl WalletCore {
         let mut nonce_array = [0u8; XCHACHA_XNONCE_LEN];
         nonce_array.copy_from_slice(nonce.as_slice());
 
-        self.expire_time = Some(now + duration);
-        self.cache_duration = Some(duration);
+        match duration {
+            Some(d) => {
+                self.expire_time = Some(now + d);
+                self.cache_duration = Some(d)
+            }
+            None => {
+                self.expire_time = Some(DEFAULT_CACHE_DURATION + now);
+                self.cache_duration = Some(DEFAULT_CACHE_DURATION)
+            }
+        };
         self.entropy_bits = Some(entropy_bits);
         let const_version: [u8; 7] = VERSION_TAG_1.as_bytes().try_into().unwrap();
-        
+
         // Update the vault with new values
         self.vault = Vault {
             version: const_version,
@@ -452,6 +457,61 @@ impl WalletCore {
         };
 
         Ok((self.vault.clone(), address, path))
+    }
+
+    /// Import an existing vault into the wallet
+    ///
+    /// This function imports an existing encrypted vault into the wallet, decrypts it using
+    /// the provided password, and caches the derived key for future operations. It is typically
+    /// used when restoring a wallet from a previously exported vault.
+    ///
+    /// # Arguments
+    /// * `password` - The password used to encrypt the vault
+    /// * `vault` - The encrypted vault to import
+    /// * `duration` - Optional cache duration for the derived key (None uses default)
+    /// * `now` - The current Unix timestamp for cache management
+    ///
+    /// # Returns
+    /// * `Ok((String, String))` - The wallet address and derivation path if import is successful
+    /// * `Err(CoreError)` - If there is an error during import (e.g., invalid password)
+    ///
+    /// # Security
+    /// This function securely derives the encryption key using Argon2 and decrypts the vault
+    /// using XChaCha20Poly1305. The derived key is cached according to the specified duration
+    /// for efficient subsequent operations.
+    pub fn import_vault(
+        &mut self,
+        password: &str,
+        vault: Vault,
+        duration: Option<u64>,
+        now: u64,
+    ) -> Result<(String, String), CoreError> {
+        let dkey = builder::password_kdf_argon2(password, &vault.salt)?;
+        match builder::decrypt_xchacha(&vault.ciphertext, &dkey, &vault.nonce) {
+            Ok(mnemonic) => {
+                self.derived_key = Some(
+                    dkey.as_slice()
+                        .try_into()
+                        .map_err(|_| CoreError::InvalidDerivedKey)?,
+                );
+                match duration {
+                    Some(d) => {
+                        self.expire_time = Some(now + d);
+                        self.cache_duration = Some(d)
+                    }
+                    None => {
+                        self.expire_time = Some(DEFAULT_CACHE_DURATION + now);
+                        self.cache_duration = Some(DEFAULT_CACHE_DURATION)
+                    }
+                };
+                self.vault = vault;
+                let signer = builder::mnemonic_to_signer(&mnemonic, 0)?;
+                let path = format!("{DEFAULT_DERIVATION_PATH_PREFIX}{}", 0);
+                let address = format!("{:?}", signer.address());
+                Ok((address, path))
+            }
+            Err(_) => Err(CoreError::InvalidPassword),
+        }
     }
 
     /// Derive an account from the mnemonic phrase
@@ -490,6 +550,10 @@ impl WalletCore {
     /// and decrypt the stored ciphertext. If successful, it caches the derived key for future
     /// operations according to the configured cache duration.
     ///
+    /// The function implements a two-stage verification process:
+    /// 1. First, it checks if there's already a cached derived key that matches the password-derived key
+    /// 2. If no cached key exists or it doesn't match, it attempts to decrypt the ciphertext
+    ///
     /// # Arguments
     /// * `password` - The password to verify
     /// * `now` - The current Unix timestamp for cache management
@@ -502,6 +566,11 @@ impl WalletCore {
     /// # Security
     /// This function implements secure key derivation using Argon2 and XChaCha20Poly1305
     /// decryption. It also manages the caching of derived keys with automatic expiration.
+    ///
+    /// # Cache Management
+    /// When verification succeeds, the derived key is cached for the duration specified in
+    /// `self.cache_duration` (or the default duration if none is set). The cache expiration
+    /// time is updated to `now + duration`.
     pub fn verify_password(&mut self, password: &str, now: u64) -> Result<bool, CoreError> {
         self.tick(now);
 
@@ -513,7 +582,7 @@ impl WalletCore {
         if let Some(cached_dk) = &self.derived_key {
             let equal = cached_dk.as_slice() == dkey.as_slice();
             if equal {
-                let duration = self.cache_duration.unwrap_or(900);
+                let duration = self.cache_duration.unwrap_or(DEFAULT_CACHE_DURATION);
                 self.expire_time = Some(now + duration);
                 return Ok(true);
             } else {
@@ -527,8 +596,8 @@ impl WalletCore {
         };
 
         // zeroize key? Key from array will be dropped; sensitive dkey will be zeroized after decrypt
-        match builder::decrypt_xchacha(ct, &dkey, nonce) {
-            Ok(_) => {
+        match builder::decrypt_xchacha(ct, &dkey, nonce.as_slice()) {
+            Ok(_decrypted) => {
                 self.derived_key = Some(
                     dkey.as_slice()
                         .try_into()
@@ -693,7 +762,7 @@ impl WalletCore {
             return Err(CoreError::EmptyCiphertext);
         };
         let decrypted = builder::decrypt_xchacha(ct, &dkey, nonce.as_slice())?;
-        Ok(decrypted)
+        Ok(decrypted.as_str().to_string())
     }
 
     /// Get mnemonic using password implementation
@@ -723,7 +792,7 @@ impl WalletCore {
                     .cache_duration
                     .unwrap_or(constants::DEFAULT_CACHE_DURATION);
                 self.expire_time = Some(now + duration);
-                Ok(decrypted)
+                Ok(decrypted.as_str().to_string())
             }
             Err(_) => Err(CoreError::InvalidPassword),
         }
@@ -747,7 +816,7 @@ impl WalletCore {
         password: &str,
         duration: u64,
         now: u64,
-    ) -> Result<(Vault,String,String), CoreError> {
+    ) -> Result<(Vault, String, String), CoreError> {
         // Validate mnemonic
         validate_mnemonic(mnemonic)?;
 
@@ -773,12 +842,16 @@ impl WalletCore {
         self.entropy_bits = Some(128); // Default to 128 bits
 
         let const_version: [u8; 7] = VERSION_TAG_1.as_bytes().try_into().unwrap();
-        Ok((Vault {
-            version: const_version,
-            ciphertext,
-            salt: salt_array,
-            nonce: nonce_array,
-        },address,path))
+        Ok((
+            Vault {
+                version: const_version,
+                ciphertext,
+                salt: salt_array,
+                nonce: nonce_array,
+            },
+            address,
+            path,
+        ))
     }
 
     #[cfg(feature = "airgap")]

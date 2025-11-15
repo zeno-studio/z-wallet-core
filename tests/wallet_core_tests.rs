@@ -89,7 +89,7 @@ fn test_encrypt_decrypt_xchacha() {
     assert!(decrypt_result.is_ok());
     
     let decrypted_phrase = decrypt_result.unwrap();
-    assert_eq!(decrypted_phrase, phrase);
+    assert_eq!(decrypted_phrase.as_str(), phrase);
 }
 
 #[test]
