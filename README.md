@@ -1,13 +1,12 @@
 # Z Wallet Core
 
-Z Wallet Core is a secure, no-std compatible wallet library for Ethereum-based applications. It provides core functionality for wallet creation, encryption, decryption, transaction signing, and message verification.
+Z Wallet Core is a secure, no-std compatible wallet library for Ethereum-based applications. It provides core functionality for wallet creation, encryption, decryption, and signature operations.
 
 ## Features
 
 - **Secure Storage**: Uses Argon2 for key derivation and XChaCha20Poly1305 for encryption
 - **Mnemonic Generation**: BIP39 compliant mnemonic phrase generation
-- **Transaction Signing**: Support for Legacy, EIP-1559, and EIP-7702 transactions
-- **Message Signing**: Support for EIP-191 and EIP-712 message signing
+- **Signature Operations**: Support for hash signing and EIP-7702 authorization signing
 - **no-std Compatibility**: Can be used in environments without standard library
 - **Airgap Support**: Optional airgap feature for enhanced security
 
@@ -18,8 +17,6 @@ The library is organized into several modules:
 - `builder`: Core cryptographic functions for key derivation, encryption, and decryption
 - `constants`: Configuration constants for cryptographic parameters
 - `error`: Error types and handling
-- `message`: Message signing and verification functions
-- `tx`: Transaction signing functions
 - `validate`: Validation functions for various inputs
 
 ## Security
@@ -54,27 +51,32 @@ let now = 1000; // current timestamp
 let result = wallet.create_vault(password, entropy_bits, duration, now);
 ```
 
-### Transaction Signing
+### Hash Signing
 
 ```rust
-// Sign a legacy transaction
-let signed_tx = z_wallet_core::sign_legacy_transaction(
-    signer,
-    nonce,
-    gas_price_wei,
-    gas_limit,
-    to,
-    value_wei,
-    data_hex,
-    chain_id,
-);
+// Sign a hash
+let hash = B256::from([1u8; 32]);
+let signature = wallet.sign_hash(password, index, now, &hash);
 ```
 
-### Message Signing
+### EIP-7702 Authorization Signing
 
 ```rust
-// Sign an EIP-191 message
-let signature = z_wallet_core::sign_eip191_message(signer, message);
+// Sign EIP-7702 authorizations
+let auths = vec![auth1, auth2, auth3];
+let signed_auths = wallet.sign_authorization(password, index, now, &auths);
+```
+
+### EIP-7702 Transaction Signing
+
+```rust
+// For maximum flexibility, sign authorizations and transaction separately
+let signed_auths = wallet.sign_authorization(password, index, now, &auths);
+tx.authorization_list = signed_auths;
+let signed_tx = wallet.sign_7702(password, index, now, tx, None);
+
+// Or sign both authorizations and transaction in one step
+let signed_tx = wallet.sign_7702(password, index, now, tx, Some(&auths));
 ```
 
 ## Testing

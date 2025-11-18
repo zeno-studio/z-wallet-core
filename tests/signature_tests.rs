@@ -1,310 +1,182 @@
 //! Signature Tests
 //!
-//! This file contains unit tests for transaction and message signing and verification functionality.
-//!
-//! Tests cover:
-//! - EIP-191 message signing and verification
-//! - EIP-712 message signing and verification
-//! - Legacy transaction signing
-//! - EIP-1559 transaction signing
+//! This file contains tests for the signature functionality:
+//! - Hash signing
+//! - EIP-7702 authorization signing
 //! - EIP-7702 transaction signing
-//! - Error handling for invalid signatures and parameters
 
 extern crate alloc;
 
-use z_wallet_core::{
-    sign_eip191_message, verify_eip191_message,
-    sign_eip712_message, verify_eip712_message,
-    sign_legacy_transaction, sign_eip1559_transaction, sign_eip7702_transaction
-};
-use z_wallet_core::error::CoreError;
-use alloy_signer_local::PrivateKeySigner;
-use alloy_primitives::{B256, U256, Address, TxKind};
-use alloy_consensus::{TxLegacy, TxEip1559, TxEip7702};
-use alloy_eips::eip2930::AccessList;
-use alloy_eips::eip2930::AccessListItem;
-use core::str::FromStr;
+use z_wallet_core::WalletCore;
+use z_wallet_core::constants::ENTROPY_128;
+use alloy_primitives::{B256, Address, U256, Bytes};
 
 #[test]
-fn test_eip191_message_signing_and_verification() {
-    // Create a test signer
-    let signer = PrivateKeySigner::random();
+fn test_sign_hash() {
+    let mut wallet = WalletCore::new();
+    let password = "test_password";
+    let entropy_bits = ENTROPY_128;
+    let duration = Some(3600u64);
+    let now = 1000u64;
+    let index = 0u32;
     
-    // Test message
-    let message = "Hello, World!";
+    // First create a vault
+    let create_result = wallet.create_vault(password, entropy_bits, duration, now);
+    assert!(create_result.is_ok());
     
-    // Sign the message
-    let signature_result = sign_eip191_message(signer.clone(), message);
-    assert!(signature_result.is_ok());
-    
-    let signature = signature_result.unwrap();
-    assert!(!signature.is_empty());
-    assert!(signature.starts_with("0x"));
-    
-    // Verify the signature
-    let verification_result = verify_eip191_message(message, &signature);
-    assert!(verification_result.is_ok());
-    
-    let recovered_address = verification_result.unwrap();
-    assert!(!recovered_address.is_empty());
-    assert!(recovered_address.starts_with("0x"));
-    
-    // Verify that the recovered address matches the signer's address
-    let signer_address = format!("{:?}", signer.address());
-    assert_eq!(recovered_address, signer_address);
-}
-
-#[test]
-fn test_eip191_message_verification_with_invalid_signature() {
-    // Test message
-    let message = "Hello, World!";
-    
-    // Invalid signature
-    let invalid_signature = "0xinvalid_signature";
-    
-    // Verify with invalid signature should fail
-    let verification_result = verify_eip191_message(message, invalid_signature);
-    assert!(verification_result.is_err());
-    
-    // Check that we get the expected error type
-    match verification_result.unwrap_err() {
-        CoreError::InvalidHex => {}, // Expected
-        _ => panic!("Expected InvalidHex error"),
-    }
-}
-
-#[test]
-fn test_eip712_message_signing_and_verification() {
-    // Create a test signer
-    let signer = PrivateKeySigner::random();
-    
-    // Test hash (32 bytes)
+    // Create a hash to sign
     let hash = B256::from([1u8; 32]);
     
     // Sign the hash
-    let signature_result = sign_eip712_message(signer.clone(), &hash);
-    assert!(signature_result.is_ok());
+    let sign_result = wallet.sign_hash(password, index, now, &hash);
+    assert!(sign_result.is_ok());
     
-    let signature = signature_result.unwrap();
-    assert!(!signature.is_empty());
-    assert!(signature.starts_with("0x"));
-    
-    // Verify the signature
-    let verification_result = verify_eip712_message(&hash, &signature);
-    assert!(verification_result.is_ok());
-    
-    let recovered_address = verification_result.unwrap();
-    assert!(!recovered_address.is_empty());
-    assert!(recovered_address.starts_with("0x"));
-    
-    // Verify that the recovered address matches the signer's address
-    let signer_address = format!("{:?}", signer.address());
-    assert_eq!(recovered_address, signer_address);
+    let signature = sign_result.unwrap();
+    assert!(!signature.as_bytes().is_empty());
 }
 
 #[test]
-fn test_eip712_message_verification_with_invalid_signature() {
-    // Test hash (32 bytes)
-    let hash = B256::from([1u8; 32]);
+fn test_sign_authorization() {
+    let mut wallet = WalletCore::new();
+    let password = "test_password";
+    let entropy_bits = ENTROPY_128;
+    let duration = Some(3600u64);
+    let now = 1000u64;
+    let index = 0u32;
     
-    // Invalid signature
-    let invalid_signature = "0xinvalid_signature";
+    // First create a vault
+    let create_result = wallet.create_vault(password, entropy_bits, duration, now);
+    assert!(create_result.is_ok());
     
-    // Verify with invalid signature should fail
-    let verification_result = verify_eip712_message(&hash, invalid_signature);
-    assert!(verification_result.is_err());
+    // Create authorizations to sign
+    let auth1 = alloy_eip7702::Authorization {
+        chain_id: U256::from(1u64),
+        address: Address::from([2u8; 20]),
+        nonce: 0u64,
+    };
     
-    // Check that we get the expected error type
-    match verification_result.unwrap_err() {
-        CoreError::InvalidHex => {}, // Expected
-        _ => panic!("Expected InvalidHex error"),
+    let auth2 = alloy_eip7702::Authorization {
+        chain_id: U256::from(1u64),
+        address: Address::from([3u8; 20]),
+        nonce: 1u64,
+    };
+    
+    let auths = vec![auth1, auth2];
+    
+    // Sign the authorizations
+    let sign_result = wallet.sign_authorization(password, index, now, &auths);
+    assert!(sign_result.is_ok());
+    
+    let signed_auths = sign_result.unwrap();
+    assert_eq!(signed_auths.len(), 2);
+    
+    // Verify the signatures are not empty
+    for signed_auth in signed_auths {
+        let signature = signed_auth.signature();
+        assert!(signature.is_ok());
+        assert!(!signature.unwrap().as_bytes().is_empty());
     }
 }
 
 #[test]
-fn test_legacy_transaction_signing() {
-    // Create a test signer
-    let signer = PrivateKeySigner::random();
+fn test_sign_empty_authorizations() {
+    let mut wallet = WalletCore::new();
+    let password = "test_password";
+    let entropy_bits = ENTROPY_128;
+    let duration = Some(3600u64);
+    let now = 1000u64;
+    let index = 0u32;
     
-    // Create a test transaction
-    let tx = TxLegacy {
-        chain_id: Some(1u64), // Ethereum mainnet
+    // First create a vault
+    let create_result = wallet.create_vault(password, entropy_bits, duration, now);
+    assert!(create_result.is_ok());
+    
+    // Sign empty authorizations vector
+    let auths = vec![];
+    let sign_result = wallet.sign_authorization(password, index, now, &auths);
+    assert!(sign_result.is_ok());
+    
+    let signed_auths = sign_result.unwrap();
+    assert!(signed_auths.is_empty());
+}
+
+#[test]
+fn test_sign_7702_with_auths() {
+    let mut wallet = WalletCore::new();
+    let password = "test_password";
+    let entropy_bits = ENTROPY_128;
+    let duration = Some(3600u64);
+    let now = 1000u64;
+    let index = 0u32;
+    
+    // First create a vault
+    let create_result = wallet.create_vault(password, entropy_bits, duration, now);
+    assert!(create_result.is_ok());
+    
+    // Create authorizations to sign
+    let auth1 = alloy_eip7702::Authorization {
+        chain_id: U256::from(1u64),
+        address: Address::from([2u8; 20]),
         nonce: 0u64,
-        gas_price: 20000000000u128, // 20 Gwei
-        gas_limit: 21000u64,
-        to: TxKind::Call(Address::from_str("0x742d35Cc6634C0532925a3b8D91D0a6A3A7a2C05").unwrap()),
-        value: U256::from(1000000000000000000u128), // 1 ETH
-        input: Default::default(),
     };
     
-    // Sign the transaction
-    let tx_result = sign_legacy_transaction(signer, tx);
+    let auths = vec![auth1];
     
-    assert!(tx_result.is_ok());
+    // Create an EIP-7702 transaction
+    let tx = alloy_consensus::TxEip7702 {
+        chain_id: 1,
+        nonce: 0,
+        gas_limit: 21000,
+        max_fee_per_gas: 20_000_000_000,
+        max_priority_fee_per_gas: 1_000_000_000,
+        to: Address::from([4u8; 20]),
+        value: U256::from(1000000000000000000u64), // 1 ETH
+        access_list: Default::default(),
+        authorization_list: vec![], // This will be filled by sign_7702
+        input: Bytes::from(vec![]),
+    };
     
-    let signed_tx = tx_result.unwrap();
+    // Sign the EIP-7702 transaction with authorizations
+    let sign_result = wallet.sign_7702(password, index, now, tx, Some(&auths));
+    assert!(sign_result.is_ok());
+    
+    let signed_tx = sign_result.unwrap();
     assert!(!signed_tx.is_empty());
     assert!(signed_tx.starts_with("0x"));
 }
 
 #[test]
-fn test_legacy_transaction_signing_invalid_parameters() {
-    // Create a test signer
-    let signer = PrivateKeySigner::random();
+fn test_sign_7702_without_auths() {
+    let mut wallet = WalletCore::new();
+    let password = "test_password";
+    let entropy_bits = ENTROPY_128;
+    let duration = Some(3600u64);
+    let now = 1000u64;
+    let index = 0u32;
     
-    // Create a test transaction with invalid gas limit (too low)
-    let tx = TxLegacy {
-        chain_id: Some(1u64), // Ethereum mainnet
-        nonce: 0u64,
-        gas_price: 20000000000u128, // 20 Gwei
-        gas_limit: 20000u64, // Too low for a basic transaction
-        to: TxKind::Call(Address::from_str("0x742d35Cc6634C0532925a3b8D91D0a6A3A7a2C05").unwrap()),
-        value: U256::from(1000000000000000000u128), // 1 ETH
-        input: Default::default(),
+    // First create a vault
+    let create_result = wallet.create_vault(password, entropy_bits, duration, now);
+    assert!(create_result.is_ok());
+    
+    // Create an EIP-7702 transaction without authorizations
+    let tx = alloy_consensus::TxEip7702 {
+        chain_id: 1,
+        nonce: 0,
+        gas_limit: 21000,
+        max_fee_per_gas: 20_000_000_000,
+        max_priority_fee_per_gas: 1_000_000_000,
+        to: Address::from([4u8; 20]),
+        value: U256::from(1000000000000000000u64), // 1 ETH
+        access_list: Default::default(),
+        authorization_list: vec![],
+        input: Bytes::from(vec![]),
     };
     
-    // Sign the transaction should fail
-    let tx_result = sign_legacy_transaction(signer, tx);
+    // Sign the EIP-7702 transaction without authorizations
+    let sign_result = wallet.sign_7702(password, index, now, tx, None);
+    assert!(sign_result.is_ok());
     
-    assert!(tx_result.is_err());
-    
-    // Check that we get the expected error type
-    match tx_result.unwrap_err() {
-        CoreError::InvalidGasLimit => {}, // Expected
-        _ => panic!("Expected InvalidGasLimit error"),
-    }
-}
-
-#[test]
-fn test_eip1559_transaction_signing() {
-    // Create a test signer
-    let signer = PrivateKeySigner::random();
-    
-    // Create a complex access list
-    let access_list = AccessList(vec![
-        AccessListItem {
-            address: Address::from_str("0x742d35Cc6634C0532925a3b8D91D0a6A3A7a2C05").unwrap(),
-            storage_keys: vec![
-                B256::from_str("0x0000000000000000000000000000000000000000000000000000000000000001").unwrap(),
-                B256::from_str("0x0000000000000000000000000000000000000000000000000000000000000002").unwrap(),
-            ],
-        },
-        AccessListItem {
-            address: Address::from_str("0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045").unwrap(),
-            storage_keys: vec![
-                B256::from_str("0x0000000000000000000000000000000000000000000000000000000000000003").unwrap(),
-            ],
-        },
-    ]);
-    
-    // Create a test transaction with complex access list
-    let tx = TxEip1559 {
-        chain_id: 1u64, // Ethereum mainnet
-        nonce: 0u64,
-        max_priority_fee_per_gas: 1000000000u128, // 1 Gwei
-        max_fee_per_gas: 20000000000u128, // 20 Gwei
-        gas_limit: 21000u64,
-        to: TxKind::Call(Address::from_str("0x742d35Cc6634C0532925a3b8D91D0a6A3A7a2C05").unwrap()),
-        value: U256::from(1000000000000000000u128), // 1 ETH
-        input: Default::default(),
-        access_list,
-    };
-    
-    // Sign the transaction
-    let tx_result = sign_eip1559_transaction(signer, tx);
-    
-    assert!(tx_result.is_ok());
-    
-    let signed_tx = tx_result.unwrap();
-    assert!(!signed_tx.is_empty());
-    assert!(signed_tx.starts_with("0x"));
-}
-
-#[test]
-fn test_eip1559_transaction_signing_invalid_parameters() {
-    // Create a test signer
-    let signer = PrivateKeySigner::random();
-    
-    // Create a complex access list
-    let access_list = AccessList(vec![
-        AccessListItem {
-            address: Address::from_str("0x742d35Cc6634C0532925a3b8D91D0a6A3A7a2C05").unwrap(),
-            storage_keys: vec![
-                B256::from_str("0x0000000000000000000000000000000000000000000000000000000000000001").unwrap(),
-            ],
-        },
-    ]);
-    
-    // Create a test transaction with invalid fee relationship (priority fee > max fee)
-    let tx = TxEip1559 {
-        chain_id: 1u64, // Ethereum mainnet
-        nonce: 0u64,
-        max_priority_fee_per_gas: 30000000000u128, // 30 Gwei (higher than max fee)
-        max_fee_per_gas: 20000000000u128, // 20 Gwei
-        gas_limit: 21000u64,
-        to: TxKind::Call(Address::from_str("0x742d35Cc6634C0532925a3b8D91D0a6A3A7a2C05").unwrap()),
-        value: U256::from(1000000000000000000u128), // 1 ETH
-        input: Default::default(),
-        access_list,
-    };
-    
-    // Sign the transaction should fail
-    let tx_result = sign_eip1559_transaction(signer, tx);
-    
-    assert!(tx_result.is_err());
-    
-    // Check that we get the expected error type
-    match tx_result.unwrap_err() {
-        CoreError::InvalidMaxPriorityFee => {}, // Expected
-        _ => panic!("Expected InvalidMaxPriorityFee error"),
-    }
-}
-
-#[test]
-fn test_eip7702_transaction_signing() {
-    // Note: EIP-7702 transactions are more complex and require valid authorization lists
-    // For this test, we'll just verify the function exists and can be called with valid parameters
-    
-    // Create a test signer
-    let signer = PrivateKeySigner::random();
-    
-    // Create a complex access list
-    let access_list = AccessList(vec![
-        AccessListItem {
-            address: Address::from_str("0x742d35Cc6634C0532925a3b8D91D0a6A3A7a2C05").unwrap(),
-            storage_keys: vec![
-                B256::from_str("0x0000000000000000000000000000000000000000000000000000000000000001").unwrap(),
-            ],
-        },
-    ]);
-    
-    // Create authorization list (non-empty as requested)
-    // For now, we'll use an empty list but in a real implementation this would contain valid authorizations
-    let authorization_list = vec![];
-    
-    // Create a test transaction with complex access list
-    let tx = TxEip7702 {
-        chain_id: 1u64, // Ethereum mainnet
-        nonce: 0u64,
-        max_priority_fee_per_gas: 1000000000u128, // 1 Gwei
-        max_fee_per_gas: 20000000000u128, // 20 Gwei
-        gas_limit: 21000u64,
-        to: Address::from_str("0x742d35Cc6634C0532925a3b8D91D0a6A3A7a2C05").unwrap(),
-        value: U256::from(1000000000000000000u128), // 1 ETH
-        input: Default::default(),
-        access_list,
-        authorization_list,
-    };
-    
-    // Sign the transaction
-    let tx_result = sign_eip7702_transaction(signer, tx);
-    
-    // Note: This might fail due to the complexity of EIP-7702 transactions
-    // but we're testing that the function can be called
-    // For a real test, we would need to set up proper authorization lists
-    assert!(tx_result.is_ok());
-    
-    let signed_tx = tx_result.unwrap();
+    let signed_tx = sign_result.unwrap();
     assert!(!signed_tx.is_empty());
     assert!(signed_tx.starts_with("0x"));
 }

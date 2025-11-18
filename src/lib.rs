@@ -10,26 +10,26 @@ use alloc::string::ToString;
 use alloc::vec::Vec;
 
 // Import third-party libraries
+use alloy_consensus::{Signed, TxEip7702};
+use alloy_eip7702::{Authorization, SignedAuthorization};
+use alloy_network::TxSignerSync;
+use alloy_primitives::{B256, Signature};
+use alloy_signer::SignerSync;
 use alloy_signer_local::LocalSignerError;
 use alloy_signer_local::{MnemonicBuilder, PrivateKeySigner, coins_bip39::English};
 use hex::encode as hex_encode;
-use serde::{Deserialize, Serialize};
 use zeroize::{Zeroize, Zeroizing};
 
 // Import local modules
 pub mod builder;
 pub mod constants;
 pub mod error;
-pub mod message;
-pub mod tx;
 pub mod validate;
 
 // Import contents from local modules
 pub use builder::*;
 pub use constants::*;
 pub use error::CoreError;
-pub use message::*;
-pub use tx::*;
 pub use validate::*;
 
 /// Core wallet functionality with encrypted storage
@@ -87,7 +87,7 @@ impl Default for WalletCore {
 /// It contains all the necessary data to reconstruct a wallet, including the encrypted
 /// mnemonic phrase, salt, nonce, and version information. The vault can be serialized
 /// to a Base58-encoded string for easy storage and transfer.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct Vault {
     /// Version tag for vault format
     ///
@@ -796,6 +796,110 @@ impl WalletCore {
             }
             Err(_) => Err(CoreError::InvalidPassword),
         }
+    }
+
+    /// Sign a hash with the private key at the specified index
+    ///
+    /// # Arguments
+    /// * `password` - The password to decrypt the mnemonic
+    /// * `index` - The derivation index of the account to use for signing
+    /// * `now` - The current Unix timestamp for cache management
+    /// * `hash` - The hash to sign
+    ///
+    /// # Returns
+    /// * `Ok(Signature)` - The signature of the hash
+    /// * `Err(CoreError)` - If there is an error during signing
+    pub fn sign_hash(
+        &mut self,
+        password: &str,
+        index: u32,
+        now: u64,
+        hash: &B256,
+    ) -> Result<Signature, CoreError> {
+        let signer = self.create_signer(Some(password), index, now)?;
+        signer
+            .sign_hash_sync(hash)
+            .map_err(|_| CoreError::SignTransactionError)
+    }
+
+    /// Sign a vector of EIP-7702 authorizations with the private key at the specified index
+    ///
+    /// This function signs each authorization in the provided vector using the private key
+    /// derived from the mnemonic at the specified index. This is useful for EIP-7702 transactions
+    /// where the authorization list needs to be signed before attaching to the transaction.
+    ///
+    /// # Arguments
+    /// * `password` - The password to decrypt the mnemonic
+    /// * `index` - The derivation index of the account to use for signing
+    /// * `now` - The current Unix timestamp for cache management
+    /// * `auths` - The vector of authorizations to sign
+    ///
+    /// # Returns
+    /// * `Ok(Vec<SignedAuthorization>)` - The vector of signed authorizations
+    /// * `Err(CoreError)` - If there is an error during signing
+    pub fn sign_authorization(
+        &mut self,
+        password: &str,
+        index: u32,
+        now: u64,
+        auths: &Vec<Authorization>,
+    ) -> Result<Vec<SignedAuthorization>, CoreError> {
+        let signer = self.create_signer(Some(password), index, now)?;
+        let mut signed_auths = Vec::with_capacity(auths.len());
+
+        for auth in auths {
+            let hash = auth.signature_hash();
+            let signature = signer
+                .sign_hash_sync(&hash)
+                .map_err(|_| CoreError::SignTransactionError)?;
+            let signed_auth = auth.clone().into_signed(signature);
+            signed_auths.push(signed_auth);
+        }
+
+        Ok(signed_auths)
+    }
+
+    /// Sign an EIP-7702 transaction with the private key at the specified index
+    ///
+    /// This function signs an EIP-7702 transaction with the private key derived from the
+    /// mnemonic at the specified index. If authorization list is provided, it will first 
+    /// sign the authorizations and attach them to the transaction before signing the transaction.
+    ///
+    /// # Arguments
+    /// * `password` - The password to decrypt the mnemonic
+    /// * `index` - The derivation index of the account to use for signing
+    /// * `now` - The current Unix timestamp for cache management
+    /// * `mut tx` - The EIP-7702 transaction to sign (will be modified)
+    /// * `auths` - Optional vector of authorizations to sign and attach to the transaction
+    ///
+    /// # Returns
+    /// * `Ok(String)` - The signed transaction encoded as a hex string with "0x" prefix
+    /// * `Err(CoreError)` - If there is an error during signing
+    pub fn sign_7702(
+        &mut self,
+        password: &str,
+        index: u32,
+        now: u64,
+        mut tx: TxEip7702,
+        auths: Option<&Vec<Authorization>>,
+    ) -> Result<String, CoreError> {
+        // If authorizations are provided, sign them and attach to the transaction
+        if let Some(authorizations) = auths {
+            let signed_auths = self.sign_authorization(password, index, now, authorizations)?;
+            tx.authorization_list = signed_auths;
+        }
+
+        let signer = self.create_signer(Some(password), index, now)?;
+        let signature = signer
+            .sign_transaction_sync(&mut tx)
+            .map_err(|_| CoreError::SignTransactionError)?;
+
+        let signed = Signed::new_unhashed(tx, signature);
+        let mut buf = Vec::with_capacity(signed.rlp_encoded_length());
+        signed.rlp_encode(&mut buf);
+        let result = format!("0x{}", hex_encode(buf));
+
+        Ok(result)
     }
 
     #[cfg(feature = "airgap")]
