@@ -31,7 +31,7 @@ fn test_sign_hash() {
     let sign_result = wallet.sign_hash(password, index, now, &hash);
     assert!(sign_result.is_ok());
     
-    let signature = sign_result.unwrap();
+    let signature = sign_result.expect("Failed to sign hash");
     assert!(!signature.as_bytes().is_empty());
 }
 
@@ -67,14 +67,14 @@ fn test_sign_authorization() {
     let sign_result = wallet.sign_authorization(password, index, now, &auths);
     assert!(sign_result.is_ok());
     
-    let signed_auths = sign_result.unwrap();
+    let signed_auths = sign_result.expect("Failed to sign authorizations");
     assert_eq!(signed_auths.len(), 2);
     
     // Verify the signatures are not empty
     for signed_auth in signed_auths {
         let signature = signed_auth.signature();
         assert!(signature.is_ok());
-        assert!(!signature.unwrap().as_bytes().is_empty());
+        assert!(!signature.expect("Failed to get signature").as_bytes().is_empty());
     }
 }
 
@@ -96,7 +96,7 @@ fn test_sign_empty_authorizations() {
     let sign_result = wallet.sign_authorization(password, index, now, &auths);
     assert!(sign_result.is_ok());
     
-    let signed_auths = sign_result.unwrap();
+    let signed_auths = sign_result.expect("Failed to sign empty authorizations");
     assert!(signed_auths.is_empty());
 }
 
@@ -140,7 +140,7 @@ fn test_sign_7702_with_auths() {
     let sign_result = wallet.sign_7702(password, index, now, tx, Some(&auths));
     assert!(sign_result.is_ok());
     
-    let signed_tx = sign_result.unwrap();
+    let signed_tx = sign_result.expect("Failed to sign EIP-7702 transaction with auths");
     assert!(!signed_tx.is_empty());
     assert!(signed_tx.starts_with("0x"));
 }
@@ -176,7 +176,7 @@ fn test_sign_7702_without_auths() {
     let sign_result = wallet.sign_7702(password, index, now, tx, None);
     assert!(sign_result.is_ok());
     
-    let signed_tx = sign_result.unwrap();
+    let signed_tx = sign_result.expect("Failed to sign EIP-7702 transaction without auths");
     assert!(!signed_tx.is_empty());
     assert!(signed_tx.starts_with("0x"));
 }

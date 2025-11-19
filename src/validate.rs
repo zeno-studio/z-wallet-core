@@ -108,7 +108,7 @@ pub fn validate_mnemonic(mnemonic: &str) -> Result<(), CoreError> {
 
 
 pub fn validate_version(version: [u8; 7]) -> Result<(), CoreError>  {
-    let const_version: [u8; 7] = VERSION_TAG_1.as_bytes().try_into().unwrap();
+    let const_version: [u8; 7] = VERSION_TAG_1.as_bytes().try_into().map_err(|_| CoreError::VaultInvalidVersion { version: VERSION_TAG_1.to_string() })?;
     if version != const_version {
         let version_str = alloc::string::String::from_utf8_lossy(&version).to_string();
         return Err(CoreError::VaultInvalidVersion { version: version_str });

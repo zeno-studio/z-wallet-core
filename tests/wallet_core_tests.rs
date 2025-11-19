@@ -66,7 +66,7 @@ fn test_password_kdf_argon2() {
     let result = password_kdf_argon2(password, &salt);
     assert!(result.is_ok());
     
-    let dkey = result.unwrap();
+    let dkey = result.expect("Failed to derive key with Argon2");
     assert_eq!(dkey.len(), ARGON2_OUTPUT_LEN);
 }
 
@@ -80,15 +80,15 @@ fn test_encrypt_decrypt_xchacha() {
     let dkey_result = password_kdf_argon2(password, &salt);
     assert!(dkey_result.is_ok());
     
-    let dkey = dkey_result.unwrap();
+    let dkey = dkey_result.expect("Failed to derive key with Argon2");
     let encrypt_result = encrypt_xchacha(phrase, &dkey, &nonce);
     assert!(encrypt_result.is_ok());
     
-    let ciphertext = encrypt_result.unwrap();
+    let ciphertext = encrypt_result.expect("Failed to encrypt phrase");
     let decrypt_result = decrypt_xchacha(&ciphertext, &dkey, &nonce);
     assert!(decrypt_result.is_ok());
     
-    let decrypted_phrase = decrypt_result.unwrap();
+    let decrypted_phrase = decrypt_result.expect("Failed to decrypt ciphertext");
     assert_eq!(decrypted_phrase.as_str(), phrase);
 }
 
@@ -97,7 +97,7 @@ fn test_generate_entropy_bits() {
     let entropy_result = generate_entropy_bits(ENTROPY_128);
     assert!(entropy_result.is_ok());
     
-    let entropy = entropy_result.unwrap();
+    let entropy = entropy_result.expect("Failed to generate entropy bits");
     assert_eq!(entropy.len(), (ENTROPY_128 / 8) as usize);
 }
 
@@ -107,11 +107,11 @@ fn test_entropy_to_mnemonic() {
     let entropy_result = generate_entropy_bits(ENTROPY_128);
     assert!(entropy_result.is_ok());
     
-    let entropy = entropy_result.unwrap();
+    let entropy = entropy_result.expect("Failed to generate entropy bits");
     let mnemonic_result = entropy_to_mnemonic(&entropy);
     assert!(mnemonic_result.is_ok());
     
-    let mnemonic = mnemonic_result.unwrap();
+    let mnemonic = mnemonic_result.expect("Failed to convert entropy to mnemonic");
     assert!(!mnemonic.is_empty());
 }
 

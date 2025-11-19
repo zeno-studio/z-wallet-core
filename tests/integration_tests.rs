@@ -30,7 +30,7 @@ fn test_wallet_core_create_vault() {
     }
     assert!(result.is_ok());
     
-    let (vault, address, _) = result.unwrap();
+    let (vault, address, _) = result.expect("Failed to create vault");
     assert!(!vault.ciphertext.is_empty());
     assert_eq!(vault.salt.len(), ARGON2_SALT_LEN);
     assert_eq!(vault.nonce.len(), XCHACHA_XNONCE_LEN);
@@ -43,7 +43,7 @@ fn test_wallet_core_create_vault() {
     assert!(wallet.has_derived_key());
     assert!(wallet.get_salt().is_ok());
     assert!(wallet.get_nonce().is_ok());
-    assert_eq!(wallet.get_cache_duration(), duration.unwrap());
+    assert_eq!(wallet.get_cache_duration(), duration.expect("Duration should be Some"));
     assert_eq!(wallet.get_entropy_bits(), entropy_bits);
 }
 
@@ -62,12 +62,12 @@ fn test_wallet_core_verify_password() {
     // Now verify the password
     let verify_result = wallet.verify_password(password, now);
     assert!(verify_result.is_ok());
-    assert_eq!(verify_result.unwrap(), true);
+    assert_eq!(verify_result.expect("Password verification should succeed"), true);
     
     // Verify with wrong password
     let wrong_verify_result = wallet.verify_password("wrong_password", now);
     assert!(wrong_verify_result.is_ok());
-    assert_eq!(wrong_verify_result.unwrap(), false);
+    assert_eq!(wrong_verify_result.expect("Password verification should succeed"), false);
 }
 
 #[test]
@@ -87,7 +87,7 @@ fn test_wallet_core_derive_account() {
     let derive_result = wallet.derive_account(password, index, now);
     assert!(derive_result.is_ok());
     
-    let (address, _) = derive_result.unwrap();
+    let (address, _) = derive_result.expect("Failed to derive account");
     assert!(!address.is_empty());
     assert!(address.starts_with("0x"));
 }
@@ -108,17 +108,17 @@ fn test_wallet_core_change_password() {
     // Change the password
     let change_result = wallet.change_ciphertext_password(old_password, new_password, now);
     assert!(change_result.is_ok());
-    assert_eq!(change_result.unwrap(), true);
+    assert_eq!(change_result.expect("Password change should succeed"), true);
     
     // Verify with new password should work
     let verify_result = wallet.verify_password(new_password, now);
     assert!(verify_result.is_ok());
-    assert_eq!(verify_result.unwrap(), true);
+    assert_eq!(verify_result.expect("Password verification should succeed"), true);
     
     // Verify with old password should fail
     let old_verify_result = wallet.verify_password(old_password, now);
     assert!(old_verify_result.is_ok());
-    assert_eq!(old_verify_result.unwrap(), false);
+    assert_eq!(old_verify_result.expect("Password verification should succeed"), false);
 }
 
 #[test]
@@ -133,19 +133,19 @@ fn test_wallet_core_import_vault() {
     let create_result = wallet.create_vault(password, entropy_bits, duration, now);
     assert!(create_result.is_ok());
     
-    let (vault, original_address, _) = create_result.unwrap();
+    let (vault, original_address, _) = create_result.expect("Failed to create vault");
     
     // Create a new wallet and import the vault
     let mut new_wallet = WalletCore::new();
     let import_result = new_wallet.import_vault(password, vault, duration, now);
     assert!(import_result.is_ok());
     
-    let (imported_address, _) = import_result.unwrap();
+    let (imported_address, _) = import_result.expect("Failed to import vault");
     assert_eq!(original_address, imported_address);
     
     // Check that the new wallet has the correct state
     assert!(new_wallet.has_derived_key());
-    assert_eq!(new_wallet.get_cache_duration(), duration.unwrap());
+    assert_eq!(new_wallet.get_cache_duration(), duration.expect("Duration should be Some"));
 }
 
 #[test]
@@ -163,15 +163,15 @@ fn test_wallet_core_verify_password_cache() {
     // Test correct password
     let verify_result = wallet.verify_password(password, now);
     assert!(verify_result.is_ok());
-    assert_eq!(verify_result.unwrap(), true);
+    assert_eq!(verify_result.expect("Password verification should succeed"), true);
     
     // Test wrong password
     let wrong_verify_result = wallet.verify_password("wrong_password", now);
     assert!(wrong_verify_result.is_ok());
-    assert_eq!(wrong_verify_result.unwrap(), false);
+    assert_eq!(wrong_verify_result.expect("Password verification should succeed"), false);
     
     // Test cache expiration
-    let future_time = now + duration.unwrap() + 1;
+    let future_time = now + duration.expect("Duration should be Some") + 1;
     wallet.tick(future_time);
     assert!(!wallet.has_derived_key());
 }
@@ -198,10 +198,10 @@ fn test_wallet_core_import_export_mnemonic() {
     
     // Import from mnemonic (this would be a separate wallet instance in real usage)
     let mut new_wallet = WalletCore::new();
-    let import_result = new_wallet.import_from_mnemonic(&mnemonic, password, duration.unwrap(), now);
+    let import_result = new_wallet.import_from_mnemonic(&mnemonic, password, duration.expect("Duration should be Some"), now);
     assert!(import_result.is_ok());
     
-    let (imported_vault, _,_) = import_result.unwrap();
+    let (imported_vault, _,_) = import_result.expect("Failed to import from mnemonic");
     assert!(!imported_vault.ciphertext.is_empty());
 }
 

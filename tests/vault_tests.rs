@@ -19,7 +19,7 @@ use z_wallet_core::constants::{
 
 #[test]
 fn test_vault_creation() {
-    let version = VERSION_TAG_1.as_bytes().try_into().unwrap();
+    let version = VERSION_TAG_1.as_bytes().try_into().expect("Failed to convert version tag to array");
     let salt = [1u8; ARGON2_SALT_LEN];
     let nonce = [2u8; XCHACHA_XNONCE_LEN];
     let ciphertext = vec![3u8; 32];
@@ -39,7 +39,7 @@ fn test_vault_creation() {
 
 #[test]
 fn test_vault_to_keystore_string() {
-    let version = VERSION_TAG_1.as_bytes().try_into().unwrap();
+    let version = VERSION_TAG_1.as_bytes().try_into().expect("Failed to convert version tag to array");
     let salt = [1u8; ARGON2_SALT_LEN];
     let nonce = [2u8; XCHACHA_XNONCE_LEN];
     let ciphertext = vec![3u8; 32];
@@ -54,14 +54,14 @@ fn test_vault_to_keystore_string() {
     let keystore_result = vault.to_keystore_string();
     assert!(keystore_result.is_ok());
     
-    let keystore_string = keystore_result.unwrap();
+    let keystore_string = keystore_result.expect("Failed to generate keystore string");
     assert!(!keystore_string.is_empty());
 }
 
 #[test]
 fn test_vault_from_keystore_string() {
     // Create a valid keystore string first
-    let version = VERSION_TAG_1.as_bytes().try_into().unwrap();
+    let version = VERSION_TAG_1.as_bytes().try_into().expect("Failed to convert version tag to array");
     let salt = [1u8; ARGON2_SALT_LEN];
     let nonce = [2u8; XCHACHA_XNONCE_LEN];
     let ciphertext = vec![3u8; 32];
@@ -73,13 +73,13 @@ fn test_vault_from_keystore_string() {
         ciphertext: ciphertext.clone(),
     };
     
-    let keystore_string = vault.to_keystore_string().unwrap();
+    let keystore_string = vault.to_keystore_string().expect("Failed to generate keystore string");
     
     // Now test parsing it back
     let parsed_vault_result = Vault::from_keystore_string(&keystore_string);
     assert!(parsed_vault_result.is_ok());
     
-    let parsed_vault = parsed_vault_result.unwrap();
+    let parsed_vault = parsed_vault_result.expect("Failed to parse vault from keystore string");
     assert_eq!(parsed_vault.version, version);
     assert_eq!(parsed_vault.salt, salt);
     assert_eq!(parsed_vault.nonce, nonce);
@@ -139,7 +139,7 @@ fn test_vault_from_keystore_string_invalid_length() {
 
 #[test]
 fn test_vault_to_keystore_string_empty_fields() {
-    let version = VERSION_TAG_1.as_bytes().try_into().unwrap();
+    let version = VERSION_TAG_1.as_bytes().try_into().expect("Failed to convert version tag to array");
     let salt = [0u8; ARGON2_SALT_LEN]; // Empty salt
     let nonce = [0u8; XCHACHA_XNONCE_LEN]; // Empty nonce
     let ciphertext = vec![]; // Empty ciphertext

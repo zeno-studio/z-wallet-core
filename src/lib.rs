@@ -132,8 +132,9 @@ impl Vault {
     pub fn new() -> Self {
         let salt = [0u8; ARGON2_SALT_LEN];
         let nonce = [0u8; XCHACHA_XNONCE_LEN];
+        let version = VERSION_TAG_1.as_bytes().try_into().unwrap_or([0u8; 7]);
         Vault {
-            version: VERSION_TAG_1.as_bytes().try_into().unwrap(),
+            version,
             salt,
             nonce,
             ciphertext: Vec::new(),
@@ -148,14 +149,17 @@ impl Vault {
     /// * `Ok(String)` - The Base58-encoded keystore string
     /// * `Err(CoreError)` - If the vault fields are not properly initialized
     pub fn to_keystore_string(&mut self) -> Result<String, CoreError> {
-        // Check if fields are properly initialized (not zeroed)
         if self.salt.iter().all(|&b| b == 0)
             || self.nonce.iter().all(|&b| b == 0)
             || self.ciphertext.is_empty()
         {
             return Err(CoreError::InvalidVault);
         }
-        let const_version: [u8; 7] = VERSION_TAG_1.as_bytes().try_into().unwrap();
+
+        let const_version: [u8; 7] = match VERSION_TAG_1.as_bytes().try_into() {
+            Ok(v) => v,
+            Err(_) => return Err(CoreError::VaultInvalidVersion { version: VERSION_TAG_1.to_string() }),
+        };
         if self.version != const_version {
             self.version = const_version;
         }
@@ -190,14 +194,14 @@ impl Vault {
         }
 
         let mut offset = 0;
-        let version = bytes[offset..offset + VERSION_TAG_LEN].try_into().unwrap();
+        let version = bytes[offset..offset + VERSION_TAG_LEN].try_into().map_err(|_| CoreError::VaultParseError)?;
         validate::validate_version(version)?;
         offset += VERSION_TAG_LEN;
 
-        let salt = bytes[offset..offset + ARGON2_SALT_LEN].try_into().unwrap();
+        let salt = bytes[offset..offset + ARGON2_SALT_LEN].try_into().map_err(|_| CoreError::VaultParseError)?;
         offset += ARGON2_SALT_LEN;
 
-        let nonce = bytes[offset..offset + 24].try_into().unwrap();
+        let nonce = bytes[offset..offset + 24].try_into().map_err(|_| CoreError::VaultParseError)?;
         offset += XCHACHA_XNONCE_LEN;
 
         let ciphertext = bytes[offset..].to_vec();
@@ -390,7 +394,6 @@ impl WalletCore {
     /// * `true` if a derived key is cached
     /// * `false` if no derived key is cached
     pub fn has_derived_key(&self) -> bool {
-        // do not mutate here; tick() handles expiry/zeroize
         self.derived_key.is_some()
     }
 
@@ -446,9 +449,8 @@ impl WalletCore {
             }
         };
         self.entropy_bits = Some(entropy_bits);
-        let const_version: [u8; 7] = VERSION_TAG_1.as_bytes().try_into().unwrap();
+        let const_version: [u8; 7] = VERSION_TAG_1.as_bytes().try_into().map_err(|_| CoreError::VaultInvalidVersion { version: VERSION_TAG_1.to_string() })?;
 
-        // Update the vault with new values
         self.vault = Vault {
             version: const_version,
             ciphertext,
@@ -945,7 +947,7 @@ impl WalletCore {
         self.cache_duration = Some(duration);
         self.entropy_bits = Some(128); // Default to 128 bits
 
-        let const_version: [u8; 7] = VERSION_TAG_1.as_bytes().try_into().unwrap();
+        let const_version: [u8; 7] = VERSION_TAG_1.as_bytes().try_into().map_err(|_| CoreError::VaultInvalidVersion { version: VERSION_TAG_1.to_string() })?;
         Ok((
             Vault {
                 version: const_version,
