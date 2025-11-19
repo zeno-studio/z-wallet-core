@@ -15,7 +15,6 @@ crate-type = ["cdylib", "rlib"]
 default = []
 airgap = [] 
 
-# 精准打击：只对“非测试代码”生效
 [lints.clippy]
 unwrap_used = { level = "deny", priority = 1 }
 expect_used = { level = "deny", priority = 1 }
