@@ -1,6 +1,6 @@
-# Z Wallet Core
+# Yami Wallet Core
 
-Z Wallet Core is a secure, no-std compatible wallet library for Ethereum-based applications. It provides core functionality for wallet creation, encryption, decryption, and signature operations.
+Yami Wallet Core is a secure, no-std compatible wallet library for Ethereum-based applications. It provides core functionality for wallet creation, encryption, decryption, and signature operations.
 
 ## Features
 
@@ -8,6 +8,7 @@ Z Wallet Core is a secure, no-std compatible wallet library for Ethereum-based a
 - **Mnemonic Generation**: BIP39 compliant mnemonic phrase generation
 - **Signature Operations**: Support for hash signing and EIP-7702 authorization signing
 - **no-std Compatibility**: Can be used in environments without standard library
+- **WASM Support**: Can be compiled to WebAssembly for JavaScript/TypeScript usage
 - **Airgap Support**: Optional airgap feature for enhanced security
 
 ## Architecture
@@ -32,7 +33,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-z-wallet-core = { path = "." }
+yami_wallet_core = { path = "." }
 ```
 
 ## Usage
@@ -48,7 +49,7 @@ let entropy_bits = 128; // or 256
 let duration = 3600; // cache duration in seconds
 let now = 1000; // current timestamp
 
-let result = wallet.create_vault(password, entropy_bits, duration, now);
+let result = wallet.create_vault(password, entropy_bits, Some(duration), now);
 ```
 
 ### Hash Signing
@@ -76,7 +77,37 @@ tx.authorization_list = signed_auths;
 let signed_tx = wallet.sign_7702(password, index, now, tx, None);
 
 // Or sign both authorizations and transaction in one step
-let signed_tx = wallet.sign_7702(password, index, now, tx, Some(&auths));
+let signed_tx = wallet.sign_7702(password, index, now, tx, Some(auths));
+```
+
+## WASM Usage
+
+The library can be compiled to WebAssembly for use in JavaScript/TypeScript applications:
+
+```bash
+# Build WASM
+cargo build --features wasm --target target/wasm32-unknown-unknown/release/yami_wallet_core.wasm
+```
+
+### JavaScript Usage
+
+```javascript
+import init, { WalletCoreJs } from 'yami-wallet-core';
+
+await init();
+const wallet = new WalletCoreJs();
+
+// Create vault
+const vault = wallet.create_vault("password", 128, 3600, Date.now());
+
+// Sign EIP-7702 transaction from RLP hex
+const signedTx = wallet.sign_7702_rlp(
+    "password",
+    0,
+    "0x...", // unsigned tx RLP hex
+    "0x...", // optional: auth list RLP hex
+    Date.now()
+);
 ```
 
 ## Testing
@@ -90,6 +121,9 @@ cargo test
 # Run tests with airgap feature
 cargo test --features airgap
 
+# Run tests with wasm feature
+cargo test --features wasm
+
 # Run specific test file
 cargo test --test integration_tests
 ```
@@ -102,6 +136,14 @@ The airgap feature provides additional security by enabling functions for import
 
 ```bash
 cargo test --features airgap
+```
+
+### WASM
+
+The wasm feature enables WebAssembly compilation for JavaScript/TypeScript integration:
+
+```bash
+cargo build --features wasm --target wasm32-unknown-unknown
 ```
 
 ## License

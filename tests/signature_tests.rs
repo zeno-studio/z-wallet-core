@@ -137,7 +137,7 @@ fn test_sign_7702_with_auths() {
     };
     
     // Sign the EIP-7702 transaction with authorizations
-    let sign_result = wallet.sign_7702(password, index, now, tx, Some(&auths));
+    let sign_result = wallet.sign_7702(password, index, now, tx, Some(auths));
     assert!(sign_result.is_ok());
     
     let signed_tx = sign_result.expect("Failed to sign EIP-7702 transaction with auths");

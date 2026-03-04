@@ -48,5 +48,5 @@ zeroize = "1.8.1"
 hex = "0.4.3"
 getrandom = { version = "0.2", features = ["js"] }
 bs58 = "0.5.1"
-js-sys = { version = "0.3.91", optional = true }
 alloy-rlp = "0.3"
+js-sys = { version = "0.3.91", optional = true }

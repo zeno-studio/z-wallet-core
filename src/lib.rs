@@ -23,7 +23,6 @@ use alloy_primitives::{B256, Signature};
 use alloy_signer::SignerSync;
 use alloy_signer_local::LocalSignerError;
 use alloy_signer_local::{MnemonicBuilder, PrivateKeySigner, coins_bip39::English};
-use hex::encode as hex_encode;
 use zeroize::{Zeroize, Zeroizing};
 
 // Import local modules
@@ -44,7 +43,6 @@ pub use validate::*;
 #[cfg(feature = "wasm")]
 pub mod wasm_exports {
     //! WASM-specific exports - exposes WalletCore to JavaScript
-   
 }
 
 // Non-WASM-specific code
@@ -52,7 +50,7 @@ pub mod wasm_exports {
 pub mod native_exports {
     //! Native-specific exports and utilities
     //! This module contains code that is only compiled for non-wasm32 targets
-    
+
     /// Initialize the native module
     pub fn init() {
         // No special initialization needed for native
@@ -312,7 +310,6 @@ impl WalletCore {
             .unwrap_or(constants::DEFAULT_CACHE_DURATION)
     }
 
-
     /// Get the entropy bits for mnemonic generation
     ///
     /// This function returns the entropy bits used for mnemonic generation.
@@ -324,7 +321,6 @@ impl WalletCore {
     pub fn get_entropy_bits(&self) -> u64 {
         self.entropy_bits.unwrap_or(constants::DEFAULT_ENTROPY_BITS)
     }
-
 
     /// Get the expiration time of the cached derived key
     ///
@@ -796,7 +792,7 @@ impl WalletCore {
         let signer = self.create_signer(Some(password), index, now)?;
         signer
             .sign_hash_sync(hash)
-            .map_err(|_| CoreError::SignTransactionError)
+            .map_err(|e| CoreError::SignTransactionError(format!("{:?}", e)))
     }
 
     /// Sign a vector of EIP-7702 authorizations with the private key at the specified index
@@ -828,7 +824,7 @@ impl WalletCore {
             let hash = auth.signature_hash();
             let signature = signer
                 .sign_hash_sync(&hash)
-                .map_err(|_| CoreError::SignTransactionError)?;
+                .map_err(|e| CoreError::SignTransactionError(format!("{:?}", e)))?;
             let signed_auth = auth.clone().into_signed(signature);
             signed_auths.push(signed_auth);
         }
@@ -839,7 +835,7 @@ impl WalletCore {
     /// Sign an EIP-7702 transaction with the private key at the specified index
     ///
     /// This function signs an EIP-7702 transaction with the private key derived from the
-    /// mnemonic at the specified index. If authorization list is provided, it will first 
+    /// mnemonic at the specified index. If authorization list is provided, it will first
     /// sign the authorizations and attach them to the transaction before signing the transaction.
     ///
     /// # Arguments
@@ -857,26 +853,27 @@ impl WalletCore {
         password: &str,
         index: u32,
         now: u64,
-        mut tx: TxEip7702,
-        auths: Option<&Vec<Authorization>>,
+        tx: TxEip7702, 
+        auths: Option<Vec<Authorization>>, 
     ) -> Result<String, CoreError> {
-        // If authorizations are provided, sign them and attach to the transaction
+        let mut tx = tx; 
+
         if let Some(authorizations) = auths {
-            let signed_auths = self.sign_authorization(password, index, now, authorizations)?;
+            let signed_auths = self.sign_authorization(password, index, now, &authorizations)?;
             tx.authorization_list = signed_auths;
         }
 
         let signer = self.create_signer(Some(password), index, now)?;
         let signature = signer
             .sign_transaction_sync(&mut tx)
-            .map_err(|_| CoreError::SignTransactionError)?;
+            .map_err(|e| CoreError::SignTransactionError(format!("{:?}", e)))?;
 
-        let signed = Signed::new_unhashed(tx, signature);
-        let mut buf = Vec::with_capacity(signed.rlp_encoded_length());
-        signed.rlp_encode(&mut buf);
-        let result = format!("0x{}", hex_encode(buf));
+        let signed_tx = Signed::new_unhashed(tx, signature);
 
-        Ok(result)
+        let mut buf = Vec::with_capacity(signed_tx.rlp_encoded_length());
+        signed_tx.rlp_encode(&mut buf);
+
+        Ok(format!("0x{}", hex::encode(buf)))
     }
 
     #[cfg(feature = "airgap")]
@@ -897,7 +894,7 @@ impl WalletCore {
         password: &str,
         duration: u64,
         now: u64,
-        index: u32
+        index: u32,
     ) -> Result<(Vault, String, String), CoreError> {
         // Validate mnemonic
         validate_mnemonic(mnemonic)?;

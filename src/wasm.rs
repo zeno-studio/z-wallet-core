@@ -10,14 +10,12 @@ extern crate alloc;
 use alloc::format;
 use alloc::string::String;
 use alloc::vec::Vec;
-
 use alloy_consensus::TxEip7702;
 use alloy_eip7702::Authorization;
 use alloy_primitives::B256;
 use alloy_rlp::Decodable;
 use hex::encode as hex_encode;
 use wasm_bindgen::prelude::*;
-
 
 use crate::{Vault, WalletCore};
 
@@ -49,18 +47,13 @@ impl WalletCoreJs {
     /// * `true` if successful
     pub fn load_vault(&mut self, vault_string: &str) -> WasmResult<bool> {
         let vault = Vault::from_keystore_string(vault_string).map_err(JsValue::from)?;
-        self.inner
-            .load_vault(vault)
-            .map_err(JsValue::from)?;
+        self.inner.load_vault(vault).map_err(JsValue::from)?;
         Ok(true)
     }
 
     /// Get vault string (Base58-encoded)
     pub fn get_vault_string(&mut self) -> WasmResult<String> {
-        self.inner
-            .vault
-            .to_keystore_string()
-            .map_err(JsValue::from)
+        self.inner.vault.to_keystore_string().map_err(JsValue::from)
     }
 
     /// Set cache duration for derived key
@@ -147,9 +140,21 @@ impl WalletCoreJs {
         let vault_string = vault.to_keystore_string().map_err(JsValue::from)?;
 
         let result = js_sys::Object::new();
-        js_sys::Reflect::set(&result, &JsValue::from_str("vault"), &JsValue::from_str(&vault_string))?;
-        js_sys::Reflect::set(&result, &JsValue::from_str("address"), &JsValue::from_str(&address))?;
-        js_sys::Reflect::set(&result, &JsValue::from_str("path"), &JsValue::from_str(&path))?;
+        js_sys::Reflect::set(
+            &result,
+            &JsValue::from_str("vault"),
+            &JsValue::from_str(&vault_string),
+        )?;
+        js_sys::Reflect::set(
+            &result,
+            &JsValue::from_str("address"),
+            &JsValue::from_str(&address),
+        )?;
+        js_sys::Reflect::set(
+            &result,
+            &JsValue::from_str("path"),
+            &JsValue::from_str(&path),
+        )?;
 
         Ok(result.into())
     }
@@ -181,8 +186,16 @@ impl WalletCoreJs {
             .map_err(JsValue::from)?;
 
         let result = js_sys::Object::new();
-        js_sys::Reflect::set(&result, &JsValue::from_str("address"), &JsValue::from_str(&address))?;
-        js_sys::Reflect::set(&result, &JsValue::from_str("path"), &JsValue::from_str(&path))?;
+        js_sys::Reflect::set(
+            &result,
+            &JsValue::from_str("address"),
+            &JsValue::from_str(&address),
+        )?;
+        js_sys::Reflect::set(
+            &result,
+            &JsValue::from_str("path"),
+            &JsValue::from_str(&path),
+        )?;
 
         Ok(result.into())
     }
@@ -198,20 +211,23 @@ impl WalletCoreJs {
     /// * Object containing:
     ///   - `address`: Derived wallet address
     ///   - `path`: Derivation path
-    pub fn derive_account(
-        &mut self,
-        password: &str,
-        index: u32,
-        now: u64,
-    ) -> WasmResult<JsValue> {
+    pub fn derive_account(&mut self, password: &str, index: u32, now: u64) -> WasmResult<JsValue> {
         let (address, path) = self
             .inner
             .derive_account(password, index, now)
             .map_err(JsValue::from)?;
 
         let result = js_sys::Object::new();
-        js_sys::Reflect::set(&result, &JsValue::from_str("address"), &JsValue::from_str(&address))?;
-        js_sys::Reflect::set(&result, &JsValue::from_str("path"), &JsValue::from_str(&path))?;
+        js_sys::Reflect::set(
+            &result,
+            &JsValue::from_str("address"),
+            &JsValue::from_str(&address),
+        )?;
+        js_sys::Reflect::set(
+            &result,
+            &JsValue::from_str("path"),
+            &JsValue::from_str(&path),
+        )?;
 
         Ok(result.into())
     }
@@ -288,7 +304,8 @@ impl WalletCoreJs {
         now: u64,
     ) -> WasmResult<String> {
         // Parse hash from hex
-        let hash_bytes = hex::decode(hash_hex).map_err(|_| JsValue::from_str("Invalid hex hash"))?;
+        let hash_bytes =
+            hex::decode(hash_hex).map_err(|_| JsValue::from_str("Invalid hex hash"))?;
         if hash_bytes.len() != 32 {
             return Err(JsValue::from_str("Invalid hash length: expected 32 bytes"));
         }
@@ -307,235 +324,60 @@ impl WalletCoreJs {
         Ok(hex_encode(sig_bytes))
     }
 
-    /// Sign a hash and return signature components
+    /// Parse authorization list from RLP hex (continuous RLP list)
+    fn parse_auth_list_rlp(list_rlp_hex: &str) -> WasmResult<Vec<Authorization>> {
+        let bytes = hex::decode(list_rlp_hex.trim_start_matches("0x"))
+            .map_err(|e| JsValue::from_str(&format!("Invalid auth list RLP hex: {}", e)))?;
+
+        // alloy_rlp supports direct decoding of Vec<T> where T: Decodable
+        Vec::<Authorization>::decode(&mut bytes.as_slice())
+            .map_err(|e| JsValue::from_str(&format!("Auth list RLP decode failed: {:?}", e)))
+    }
+
+    /// Parse unsigned EIP-7702 tx from RLP hex (with 0x04 prefix)
+    fn parse_unsigned_tx_rlp(tx_rlp_hex: &str) -> WasmResult<TxEip7702> {
+        let bytes = hex::decode(tx_rlp_hex.trim_start_matches("0x"))
+            .map_err(|e| JsValue::from_str(&format!("Invalid tx RLP hex: {}", e)))?;
+
+        // Use TxEip7702::decode directly (cleanest approach)
+        TxEip7702::decode(&mut bytes.as_slice())
+            .map_err(|e| JsValue::from_str(&format!("Tx RLP decode failed: {:?}", e)))
+    }
+
+    /// Sign EIP-7702 transaction from RLP-encoded hex inputs
     ///
-    /// # Arguments
-    /// * `password` - The password to decrypt the mnemonic
-    /// * `index` - Derivation index
-    /// * `hash_hex` - Hex-encoded hash to sign (64 chars, 32 bytes)
-    /// * `now` - Current Unix timestamp
+    /// JS side should RLP encode unsigned tx and auth list first (recommend using viem's encodeTransaction or alloy.js)
     ///
-    /// # Returns
-    /// * Object containing:
-    ///   - `r`: R component of signature (hex)
-    ///   - `s`: S component of signature (hex)
-    ///   - `v`: V component of signature (hex)
-    pub fn sign_hash_components(
+    /// @param password - The password to decrypt the mnemonic
+    /// @param index - Derivation index
+    /// @param tx_rlp_hex - unsigned EIP-7702 tx RLP hex (must include 0x04 type byte)
+    /// @param auth_list_rlp_hex - optional: unsigned authorizations RLP list hex (RLP([auth1, auth2, ...]))
+    /// @param now - Current Unix timestamp
+    pub fn sign_7702_rlp(
         &mut self,
         password: &str,
         index: u32,
-        hash_hex: &str,
-        now: u64,
-    ) -> WasmResult<JsValue> {
-        // Parse hash from hex
-        let hash_bytes = hex::decode(hash_hex).map_err(|_| JsValue::from_str("Invalid hex hash"))?;
-        if hash_bytes.len() != 32 {
-            return Err(JsValue::from_str("Invalid hash length: expected 32 bytes"));
-        }
-        let hash_array: [u8; 32] = hash_bytes
-            .try_into()
-            .map_err(|_| JsValue::from_str("Invalid hash length"))?;
-        let b256 = B256::from(hash_array);
-
-        let signature = self
-            .inner
-            .sign_hash(password, index, now, &b256)
-            .map_err(JsValue::from)?;
-
-        let sig_ref = &signature;
-        let r = hex_encode(sig_ref.r().as_le_bytes());
-        let s = hex_encode(sig_ref.s().as_le_bytes());
-        let v = format!("{:02x}", signature.v() as u8);
-
-        let result = js_sys::Object::new();
-        js_sys::Reflect::set(&result, &JsValue::from_str("r"), &JsValue::from_str(&r))?;
-        js_sys::Reflect::set(&result, &JsValue::from_str("s"), &JsValue::from_str(&s))?;
-        js_sys::Reflect::set(&result, &JsValue::from_str("v"), &JsValue::from_str(&v))?;
-
-        Ok(result.into())
-    }
-
-    /// Parse authorization from RLP hex
-    ///
-    /// Authorization is RLP encoded: [chain_id, address, nonce]
-    fn parse_authorization(auth_hex: &str) -> Result<Authorization, JsValue> {
-        let auth_bytes = hex::decode(auth_hex)
-            .map_err(|_| JsValue::from_str("Invalid authorization hex"))?;
-
-        // Use RLP decoding
-        let auth = Authorization::decode(&mut auth_bytes.as_slice())
-            .map_err(|_| JsValue::from_str("Failed to decode authorization"))?;
-
-        Ok(auth)
-    }
-
-    /// Sign EIP-7702 authorizations
-    ///
-    /// # Arguments
-    /// * `password` - The password to decrypt the mnemonic
-    /// * `index` - Derivation index
-    /// * `auth_list_hex` - Hex-encoded authorization list
-    /// * `now` - Current Unix timestamp
-    ///
-    /// # Returns
-    /// * Array of hex-encoded signed authorizations
-    pub fn sign_authorization(
-        &mut self,
-        password: &str,
-        index: u32,
-        auth_list_hex: &str,
-        now: u64,
-    ) -> WasmResult<JsValue> {
-        // Parse authorization list
-        let auth_bytes = hex::decode(auth_list_hex)
-            .map_err(|_| JsValue::from_str("Invalid auth list hex"))?;
-
-        // Each authorization is 68 bytes
-        if auth_bytes.len() % 68 != 0 {
-            return Err(JsValue::from_str(
-                "Invalid authorization list: length must be multiple of 68",
-            ));
-        }
-
-        let auth_count = auth_bytes.len() / 68;
-        let mut authorizations = Vec::with_capacity(auth_count);
-
-        for i in 0..auth_count {
-            let start = i * 68;
-            let end = start + 68;
-            let auth_hex = hex_encode(&auth_bytes[start..end]);
-            authorizations.push(Self::parse_authorization(&auth_hex)?);
-        }
-
-        let signed_auths = self
-            .inner
-            .sign_authorization(password, index, now, &authorizations)
-            .map_err(JsValue::from)?;
-
-        // Encode signed authorizations as hex
-        let result = js_sys::Array::new();
-        for signed_auth in signed_auths {
-            // Encode as RLP bytes then hex
-            let encoded = alloy_rlp::encode(&signed_auth);
-            result.push(&JsValue::from_str(&hex_encode(encoded)));
-        }
-
-        Ok(result.into())
-    }
-
-    /// Sign EIP-7702 transaction
-    ///
-    /// # Arguments
-    /// * `password` - The password to decrypt the mnemonic
-    /// * `index` - Derivation index
-    /// * `tx_hex` - Hex-encoded unsigned 7702 transaction (RLP)
-    /// * `auth_list_hex` - Optional hex-encoded authorization list
-    /// * `now` - Current Unix timestamp
-    ///
-    /// # Returns
-    /// * Hex-encoded signed transaction (RLP)
-    pub fn sign_7702(
-        &mut self,
-        password: &str,
-        index: u32,
-        tx_hex: &str,
-        auth_list_hex: Option<String>,
+        tx_rlp_hex: &str,
+        auth_list_rlp_hex: Option<String>,
         now: u64,
     ) -> WasmResult<String> {
-        // Decode transaction from hex
-        let tx_bytes = hex::decode(tx_hex).map_err(|_| JsValue::from_str("Invalid tx hex"))?;
+        // 1. Parse unsigned tx
+        let tx = Self::parse_unsigned_tx_rlp(tx_rlp_hex)?;
 
-        // Parse the transaction
-        let tx = TxEip7702::decode(&mut tx_bytes.as_slice()).map_err(|_| JsValue::from_str("Failed to decode transaction"))?;
+        // 2. Parse auth list (if provided)
+        let auths: Option<Vec<Authorization>> = if let Some(rlp_hex) = auth_list_rlp_hex {
+            if rlp_hex.trim().is_empty() {
+                None
+            } else {
+                Some(Self::parse_auth_list_rlp(&rlp_hex)?)
+            }
+        } else {
+            None
+        };
 
-        // Parse authorizations if provided
-        let authorizations: Option<Vec<Authorization>> = auth_list_hex
-            .map(|hex| {
-                let auth_bytes = hex::decode(&hex).map_err(|_| JsValue::from_str("Invalid auth hex"))?;
+        // 3. Sign and attach (inner function consumes tx)
+        let signed_hex = self.inner.sign_7702(password, index, now, tx, auths)?;
 
-                // Each authorization is 68 bytes
-                if auth_bytes.len() % 68 != 0 {
-                    return Err(JsValue::from_str(
-                        "Invalid authorization list: length must be multiple of 68",
-                    ));
-                }
-
-                let auth_count = auth_bytes.len() / 68;
-                let mut auths = Vec::with_capacity(auth_count);
-
-                for i in 0..auth_count {
-                    let start = i * 68;
-                    let end = start + 68;
-                    let auth_hex = hex_encode(&auth_bytes[start..end]);
-                    auths.push(Self::parse_authorization(&auth_hex)?);
-                }
-                Ok::<Vec<Authorization>, JsValue>(auths)
-            })
-            .transpose()?;
-
-        let signed_tx = self
-            .inner
-            .sign_7702(password, index, now, tx, authorizations.as_ref())
-            .map_err(JsValue::from)?;
-
-        Ok(signed_tx)
-    }
-
-    /// Get vault info (non-sensitive data only)
-    ///
-    /// # Returns
-    /// * Object containing:
-    ///   - `has_ciphertext`: Boolean
-    ///   - `salt_hex`: Salt as hex
-    ///   - `nonce_hex`: Nonce as hex
-    pub fn get_vault_info(&self) -> WasmResult<JsValue> {
-        let result = js_sys::Object::new();
-        js_sys::Reflect::set(
-            &result,
-            &JsValue::from_str("has_ciphertext"),
-            &JsValue::from_bool(!self.inner.vault.ciphertext.is_empty()),
-        )?;
-        js_sys::Reflect::set(
-            &result,
-            &JsValue::from_str("salt_hex"),
-            &JsValue::from_str(&hex_encode(&self.inner.vault.salt)),
-        )?;
-        js_sys::Reflect::set(
-            &result,
-            &JsValue::from_str("nonce_hex"),
-            &JsValue::from_str(&hex_encode(&self.inner.vault.nonce)),
-        )?;
-
-        Ok(result.into())
+        Ok(signed_hex)
     }
 }
-
-/// Validate a mnemonic phrase
-///
-/// # Arguments
-/// * `mnemonic` - The mnemonic phrase to validate
-///
-/// # Returns
-/// * Boolean indicating if the mnemonic is valid
-#[wasm_bindgen]
-pub fn validate_mnemonic(mnemonic: &str) -> bool {
-    crate::validate::validate_mnemonic(mnemonic).is_ok()
-}
-
-/// Generate a random mnemonic
-///
-/// # Arguments
-/// * `entropy_bits` - Entropy bits (128 or 256)
-///
-/// # Returns
-/// * Mnemonic phrase string
-#[wasm_bindgen]
-pub fn generate_mnemonic(entropy_bits: u64) -> WasmResult<String> {
-    crate::validate::validate_entropy(entropy_bits).map_err(JsValue::from)?;
-
-    let entropy = crate::builder::generate_entropy_bits(entropy_bits).map_err(JsValue::from)?;
-    let mnemonic = crate::builder::entropy_to_mnemonic(&entropy).map_err(JsValue::from)?;
-
-    Ok((*mnemonic).clone())
-}
-

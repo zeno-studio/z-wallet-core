@@ -61,7 +61,7 @@ pub enum CoreError {
     /// The vault is invalid
     InvalidVault,
     /// Signing transaction error
-    SignTransactionError,
+    SignTransactionError(alloc::string::String),
 }
 
 impl fmt::Display for CoreError {
@@ -87,8 +87,8 @@ impl fmt::Display for CoreError {
             CoreError::VaultInvalidVersion{version} => write!(f, "Core Error: Vault invalid version: {}", version),          
             CoreError::VaultParseError => write!(f, "Core Error: Vault parse error"),
             CoreError::Bs58DecodeError => write!(f, "Core Error: BS58 decode error"),
-            CoreError::InvalidVault => write!(f, "Core Error: Invalid vault"),   
-            CoreError::SignTransactionError => write!(f, "Core Error: Sign transaction error"),
+            CoreError::InvalidVault => write!(f, "Core Error: Invalid vault"),
+            CoreError::SignTransactionError(msg) => write!(f, "Core Error: Sign transaction error - {}", msg),
         }
     }
 }
