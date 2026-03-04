@@ -7,8 +7,8 @@
 
 extern crate alloc;
 
-use z_wallet_core::WalletCore;
-use z_wallet_core::constants::ENTROPY_128;
+use yami_wallet_core::WalletCore;
+use yami_wallet_core::constants::ENTROPY_128;
 use alloy_primitives::{B256, Address, U256, Bytes};
 
 #[test]

@@ -11,8 +11,8 @@
 
 extern crate alloc;
 
-use z_wallet_core::{WalletCore};
-use z_wallet_core::constants::{
+use yami_wallet_core::{WalletCore};
+use yami_wallet_core::constants::{
     ENTROPY_128, ARGON2_SALT_LEN, XCHACHA_XNONCE_LEN
 };
 
@@ -39,10 +39,7 @@ fn test_wallet_core_create_vault() {
     assert!(!address.is_empty());
     
     // Check that wallet state is updated through public methods
-    assert!(wallet.get_ciphertext().is_ok());
     assert!(wallet.has_derived_key());
-    assert!(wallet.get_salt().is_ok());
-    assert!(wallet.get_nonce().is_ok());
     assert_eq!(wallet.get_cache_duration(), duration.expect("Duration should be Some"));
     assert_eq!(wallet.get_entropy_bits(), entropy_bits);
 }

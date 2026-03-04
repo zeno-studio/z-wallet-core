@@ -1,5 +1,8 @@
 use core::fmt;
 
+#[cfg(feature = "wasm")]
+use alloc::string::ToString;
+
 /// CoreError carries a numeric code and a human-readable message.
 /// Internally we use strong typed variants; externally you can use `code()` and `message()`.
 #[derive(Debug)]
@@ -79,3 +82,4 @@ impl fmt::Display for CoreError {
         }
     }
 }
+

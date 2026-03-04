@@ -40,7 +40,7 @@ z-wallet-core = { path = "." }
 ### Basic Wallet Creation
 
 ```rust
-use z_wallet_core::WalletCore;
+use yami_wallet_core::WalletCore;
 
 let mut wallet = WalletCore::new();
 let password = "secure_password";

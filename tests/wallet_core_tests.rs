@@ -13,17 +13,17 @@
 
 extern crate alloc;
 
-use z_wallet_core::{
+use yami_wallet_core::{
     WalletCore,
     entropy_to_mnemonic, generate_entropy_bits,
     password_kdf_argon2, encrypt_xchacha, decrypt_xchacha,
 };
-use z_wallet_core::error::CoreError;
-use z_wallet_core::constants::{
+use yami_wallet_core::error::CoreError;
+use yami_wallet_core::constants::{
     DEFAULT_CACHE_DURATION, DEFAULT_ENTROPY_BITS, ENTROPY_128, ENTROPY_256,
     ARGON2_SALT_LEN, ARGON2_OUTPUT_LEN, XCHACHA_XNONCE_LEN
 };
-use z_wallet_core::validate::{
+use yami_wallet_core::validate::{
     validate_password, validate_entropy, validate_salt, validate_nonce,
     validate_mnemonic
 };
@@ -32,7 +32,6 @@ use z_wallet_core::validate::{
 fn test_wallet_core_new() {
     let wallet = WalletCore::new();
     // We can't directly access private fields, so we'll test through public methods
-    assert!(wallet.get_ciphertext().is_err()); // Should error because ciphertext is None
     assert_eq!(wallet.get_cache_duration(), DEFAULT_CACHE_DURATION);
     assert_eq!(wallet.get_entropy_bits(), DEFAULT_ENTROPY_BITS);
     assert!(!wallet.has_derived_key());
@@ -132,21 +131,21 @@ fn test_validate_mnemonic() {
 #[test]
 fn test_validate_salt() {
     // Valid salt (non-zero)
-    let valid_salt = [1u8; ARGON2_SALT_LEN];
-    assert!(validate_salt(valid_salt).is_ok());
+    let valid_salt = vec![1u8; ARGON2_SALT_LEN];
+    assert!(validate_salt(&valid_salt).is_ok());
     
     // Invalid salt (all zeros)
-    let invalid_salt = [0u8; ARGON2_SALT_LEN];
-    assert!(matches!(validate_salt(invalid_salt), Err(CoreError::EmptySalt)));
+    let invalid_salt = vec![0u8; ARGON2_SALT_LEN];
+    assert!(matches!(validate_salt(&invalid_salt), Err(CoreError::EmptySalt)));
 }
 
 #[test]
 fn test_validate_nonce() {
     // Valid nonce (non-zero)
-    let valid_nonce = [1u8; XCHACHA_XNONCE_LEN];
-    assert!(validate_nonce(valid_nonce).is_ok());
+    let valid_nonce = vec![1u8; XCHACHA_XNONCE_LEN];
+    assert!(validate_nonce(&valid_nonce).is_ok());
     
     // Invalid nonce (all zeros)
-    let invalid_nonce = [0u8; XCHACHA_XNONCE_LEN];
-    assert!(matches!(validate_nonce(invalid_nonce), Err(CoreError::EmptyNonce)));
+    let invalid_nonce = vec![0u8; XCHACHA_XNONCE_LEN];
+    assert!(matches!(validate_nonce(&invalid_nonce), Err(CoreError::EmptyNonce)));
 }

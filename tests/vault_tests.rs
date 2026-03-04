@@ -12,22 +12,22 @@
 extern crate alloc;
 
 use alloc::vec::Vec;
-use z_wallet_core::{Vault, CoreError};
-use z_wallet_core::constants::{
+use yami_wallet_core::{Vault, CoreError};
+use yami_wallet_core::constants::{
     ARGON2_SALT_LEN, XCHACHA_XNONCE_LEN, VERSION_TAG_1, VERSION_TAG_LEN
 };
 
 #[test]
 fn test_vault_creation() {
-    let version = VERSION_TAG_1.as_bytes().try_into().expect("Failed to convert version tag to array");
-    let salt = [1u8; ARGON2_SALT_LEN];
-    let nonce = [2u8; XCHACHA_XNONCE_LEN];
+    let version = VERSION_TAG_1.as_bytes().to_vec();
+    let salt = vec![1u8; ARGON2_SALT_LEN];
+    let nonce = vec![2u8; XCHACHA_XNONCE_LEN];
     let ciphertext = vec![3u8; 32];
     
     let vault = Vault {
-        version,
-        salt,
-        nonce,
+        version: version.clone(),
+        salt: salt.clone(),
+        nonce: nonce.clone(),
         ciphertext: ciphertext.clone(),
     };
     
@@ -39,9 +39,9 @@ fn test_vault_creation() {
 
 #[test]
 fn test_vault_to_keystore_string() {
-    let version = VERSION_TAG_1.as_bytes().try_into().expect("Failed to convert version tag to array");
-    let salt = [1u8; ARGON2_SALT_LEN];
-    let nonce = [2u8; XCHACHA_XNONCE_LEN];
+    let version = VERSION_TAG_1.as_bytes().to_vec();
+    let salt = vec![1u8; ARGON2_SALT_LEN];
+    let nonce = vec![2u8; XCHACHA_XNONCE_LEN];
     let ciphertext = vec![3u8; 32];
     
     let mut vault = Vault {
@@ -61,15 +61,15 @@ fn test_vault_to_keystore_string() {
 #[test]
 fn test_vault_from_keystore_string() {
     // Create a valid keystore string first
-    let version = VERSION_TAG_1.as_bytes().try_into().expect("Failed to convert version tag to array");
-    let salt = [1u8; ARGON2_SALT_LEN];
-    let nonce = [2u8; XCHACHA_XNONCE_LEN];
+    let version = VERSION_TAG_1.as_bytes().to_vec();
+    let salt = vec![1u8; ARGON2_SALT_LEN];
+    let nonce = vec![2u8; XCHACHA_XNONCE_LEN];
     let ciphertext = vec![3u8; 32];
     
     let mut vault = Vault {
-        version,
-        salt,
-        nonce,
+        version: version.clone(),
+        salt: salt.clone(),
+        nonce: nonce.clone(),
         ciphertext: ciphertext.clone(),
     };
     
@@ -89,9 +89,9 @@ fn test_vault_from_keystore_string() {
 #[test]
 fn test_vault_from_keystore_string_invalid_version() {
     // Create a keystore string with invalid version
-    let version = [0u8; VERSION_TAG_LEN]; // Invalid version
-    let salt = [1u8; ARGON2_SALT_LEN];
-    let nonce = [2u8; XCHACHA_XNONCE_LEN];
+    let version = vec![0u8; VERSION_TAG_LEN]; // Invalid version
+    let salt = vec![1u8; ARGON2_SALT_LEN];
+    let nonce = vec![2u8; XCHACHA_XNONCE_LEN];
     let ciphertext = vec![3u8; 32];
     
     let vault = Vault {
@@ -139,9 +139,9 @@ fn test_vault_from_keystore_string_invalid_length() {
 
 #[test]
 fn test_vault_to_keystore_string_empty_fields() {
-    let version = VERSION_TAG_1.as_bytes().try_into().expect("Failed to convert version tag to array");
-    let salt = [0u8; ARGON2_SALT_LEN]; // Empty salt
-    let nonce = [0u8; XCHACHA_XNONCE_LEN]; // Empty nonce
+    let version = VERSION_TAG_1.as_bytes().to_vec();
+    let salt = vec![0u8; ARGON2_SALT_LEN]; // Empty salt
+    let nonce = vec![0u8; XCHACHA_XNONCE_LEN]; // Empty nonce
     let ciphertext = vec![]; // Empty ciphertext
     
     let mut vault = Vault {

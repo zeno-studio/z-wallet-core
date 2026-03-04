@@ -24,9 +24,9 @@ use crate::{CoreError, constants};
 /// * `salt` - The salt to use in key derivation
 ///
 /// # Returns
-/// * `Ok(Zeroizing<[u8; constants::ARGON2_OUTPUT_LEN]>)` - The derived key
+/// * `Ok(Zeroizing<Vec<u8>>)` - The derived key (32 bytes)
 /// * `Err(CoreError)` - If there is an error during key derivation
-pub fn password_kdf_argon2(password: &str, salt: &[u8]) -> Result<Zeroizing<[u8; constants::ARGON2_OUTPUT_LEN]>, CoreError> {
+pub fn password_kdf_argon2(password: &str, salt: &[u8]) -> Result<Zeroizing<Vec<u8>>, CoreError> {
     let mut dkey = Zeroizing::new(vec![0u8; constants::ARGON2_OUTPUT_LEN]);
 
     let params = argon2::Params::new(
@@ -42,25 +42,23 @@ pub fn password_kdf_argon2(password: &str, salt: &[u8]) -> Result<Zeroizing<[u8;
     argon2
         .hash_password_into(password.as_bytes(), salt, dkey.as_mut())
         .map_err(|_| CoreError::PasswordHashError)?;
-     let mut dkey_array = [0u8; constants::ARGON2_OUTPUT_LEN];
-        dkey_array.copy_from_slice(dkey.as_slice());
 
-    Ok(Zeroizing::new(dkey_array)) // Return Zeroizing for automatic zeroization
+    Ok(dkey) // Return Zeroizing for automatic zeroization
 }
 
 /// Encrypt a phrase using XChaCha20Poly1305
 ///
 /// # Arguments
 /// * `phrase` - The phrase to encrypt
-/// * `dkey` - The encryption key
-/// * `nonce` - The nonce to use in encryption
+/// * `dkey` - The encryption key (32 bytes)
+/// * `nonce` - The nonce to use in encryption (24 bytes)
 ///
 /// # Returns
 /// * `Ok(Vec<u8>)` - The encrypted ciphertext
 /// * `Err(CoreError)` - If there is an error during encryption
 pub fn encrypt_xchacha(
     phrase: &str,
-    dkey: &Zeroizing<[u8; constants::ARGON2_OUTPUT_LEN]>,
+    dkey: &Zeroizing<Vec<u8>>,
     nonce: &[u8],
 ) -> Result<Vec<u8>, CoreError> {
     let cipher = XChaCha20Poly1305::new_from_slice(dkey.as_slice())
@@ -82,15 +80,15 @@ pub fn encrypt_xchacha(
 ///
 /// # Arguments
 /// * `ciphertext` - The ciphertext to decrypt
-/// * `dkey` - The decryption key
-/// * `nonce` - The nonce used in encryption
+/// * `dkey` - The decryption key (32 bytes)
+/// * `nonce` - The nonce used in encryption (24 bytes)
 ///
 /// # Returns
 /// * `Ok(String)` - The decrypted phrase
 /// * `Err(CoreError)` - If there is an error during decryption
 pub fn decrypt_xchacha(
     ciphertext: &[u8],
-    dkey: &Zeroizing<[u8; constants::ARGON2_OUTPUT_LEN]>,
+    dkey: &Zeroizing<Vec<u8>>,
     nonce: &[u8],
 ) -> Result<Zeroizing<String>, CoreError> {
     let cipher = XChaCha20Poly1305::new_from_slice(dkey.as_slice())

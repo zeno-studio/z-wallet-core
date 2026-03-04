@@ -24,13 +24,16 @@ pub fn validate_entropy(bits: u64) -> Result<(), CoreError> {
 /// Validate salt
 ///
 /// # Arguments
-/// * `salt` - The salt to validate
+/// * `salt` - The salt to validate (must be ARGON2_SALT_LEN bytes)
 ///
 /// # Returns
-/// * `Ok(())` - If the salt is not zero
-/// * `Err(CoreError)` - If the salt is zero
-pub fn validate_salt(salt: [u8; ARGON2_SALT_LEN]) -> Result<(), CoreError> {
-    if is_zero(&salt) {
+/// * `Ok(())` - If the salt is valid
+/// * `Err(CoreError)` - If the salt is invalid or wrong length
+pub fn validate_salt(salt: &[u8]) -> Result<(), CoreError> {
+    if salt.len() != ARGON2_SALT_LEN {
+        return Err(CoreError::EmptySalt);
+    }
+    if is_zero(salt) {
         return Err(CoreError::EmptySalt);
     }
     Ok(())
@@ -39,13 +42,16 @@ pub fn validate_salt(salt: [u8; ARGON2_SALT_LEN]) -> Result<(), CoreError> {
 /// Validate nonce
 ///
 /// # Arguments
-/// * `nonce` - The nonce to validate
+/// * `nonce` - The nonce to validate (must be XCHACHA_XNONCE_LEN bytes)
 ///
 /// # Returns
-/// * `Ok(())` - If the nonce is not zero
-/// * `Err(CoreError)` - If the nonce is zero
-pub fn validate_nonce(nonce: [u8; XCHACHA_XNONCE_LEN]) -> Result<(), CoreError> {
-    if is_zero(&nonce) {
+/// * `Ok(())` - If the nonce is valid
+/// * `Err(CoreError)` - If the nonce is invalid or wrong length
+pub fn validate_nonce(nonce: &[u8]) -> Result<(), CoreError> {
+    if nonce.len() != XCHACHA_XNONCE_LEN {
+        return Err(CoreError::EmptyNonce);
+    }
+    if is_zero(nonce) {
         return Err(CoreError::EmptyNonce);
     }
     Ok(())
@@ -107,10 +113,10 @@ pub fn validate_mnemonic(mnemonic: &str) -> Result<(), CoreError> {
 }
 
 
-pub fn validate_version(version: [u8; 7]) -> Result<(), CoreError>  {
+pub fn validate_version(version: &[u8]) -> Result<(), CoreError>  {
     let const_version: [u8; 7] = VERSION_TAG_1.as_bytes().try_into().map_err(|_| CoreError::VaultInvalidVersion { version: VERSION_TAG_1.to_string() })?;
-    if version != const_version {
-        let version_str = alloc::string::String::from_utf8_lossy(&version).to_string();
+    if version.len() != 7 || version != const_version {
+        let version_str = alloc::string::String::from_utf8_lossy(version).to_string();
         return Err(CoreError::VaultInvalidVersion { version: version_str });
     }  
     Ok(())
