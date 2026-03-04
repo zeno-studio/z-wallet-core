@@ -181,6 +181,7 @@ fn test_wallet_core_import_export_mnemonic() {
     let entropy_bits = ENTROPY_128;
     let duration = Some(3600u64);
     let now = 1000u64;
+    let index = 0u32;
     
     // First create a vault
     let create_result = wallet.create_vault(password, entropy_bits, duration, now);
@@ -195,7 +196,7 @@ fn test_wallet_core_import_export_mnemonic() {
     
     // Import from mnemonic (this would be a separate wallet instance in real usage)
     let mut new_wallet = WalletCore::new();
-    let import_result = new_wallet.import_from_mnemonic(&mnemonic, password, duration.expect("Duration should be Some"), now);
+    let import_result = new_wallet.import_from_mnemonic(&mnemonic, password, duration.expect("Duration should be Some"), now, index);
     assert!(import_result.is_ok());
     
     let (imported_vault, _,_) = import_result.expect("Failed to import from mnemonic");

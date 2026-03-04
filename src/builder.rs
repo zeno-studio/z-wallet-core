@@ -115,7 +115,7 @@ pub fn decrypt_xchacha(
 /// * `Err(CoreError)` - If there is an error during entropy generation
 pub fn generate_entropy_bytes(bytes: u64) -> Result<Vec<u8>, CoreError> {
     let mut entropy = vec![0u8; bytes as usize];
-    getrandom::fill(&mut entropy).map_err(|_| CoreError::EntropyGenerationFailed)?;
+    getrandom::getrandom(&mut entropy).map_err(|_| CoreError::EntropyGenerationFailed)?;
     Ok(entropy)
 }
 
@@ -130,7 +130,7 @@ pub fn generate_entropy_bytes(bytes: u64) -> Result<Vec<u8>, CoreError> {
 pub fn generate_entropy_bits(bits: u64) -> Result<Zeroizing<Vec<u8>>, CoreError> {
     let bytes = (bits / 8) as usize;
     let mut entropy = vec![0u8; bytes];
-    getrandom::fill(&mut entropy).map_err(|_| CoreError::EntropyGenerationFailed)?;
+    getrandom::getrandom(&mut entropy).map_err(|_| CoreError::EntropyGenerationFailed)?;
     Ok(Zeroizing::new(entropy))
 }
 

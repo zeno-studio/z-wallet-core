@@ -339,7 +339,12 @@ impl WalletCore {
     ///
     /// # Arguments
     /// * `now` - The current Unix timestamp
+    ///
+    /// # Logic
+    /// - Branch 1: If expire_time is set and current time has passed, clear both derived_key and expire_time
+    /// - Branch 2: If expire_time is None but derived_key exists (inconsistent state), clear derived_key as safety measure
     pub fn tick(&mut self, now: u64) {
+        // Branch 1: expire_time is set and has passed
         if let Some(ct) = self.expire_time
             && now > ct
         {
@@ -348,14 +353,27 @@ impl WalletCore {
             }
             self.expire_time = None;
         }
+        // Branch 2: expire_time is None but derived_key exists (inconsistent state)
+        // This ensures that if derived_key exists, expire_time must also be set
         if self.expire_time.is_none()
             && let Some(mut dk) = self.derived_key.take()
         {
-            // For HeaplessVec, we need to manually zeroize
+            // Manually zeroize the derived key
             for byte in dk.iter_mut() {
                 *byte = 0;
             }
         }
+    }
+
+    /// Lock the wallet by clearing the cached derived key and expire time.
+    ///
+    /// This function provides a way to manually invalidate the cached derived key,
+    /// effectively "logging out" the user. It zeroizes the derived key for security.
+    pub fn lock(&mut self) {
+        if let Some(mut dk) = self.derived_key.take() {
+            dk.zeroize();
+        }
+        self.expire_time = None;
     }
 
     /// Check if a derived key is currently cached
@@ -879,38 +897,32 @@ impl WalletCore {
         password: &str,
         duration: u64,
         now: u64,
+        index: u32
     ) -> Result<(Vault, String, String), CoreError> {
         // Validate mnemonic
         validate_mnemonic(mnemonic)?;
-
         let signer = builder::mnemonic_to_signer(mnemonic, 0)?;
         let address = format!("{:?}", signer.address()); // Use format instead of to_string
-        let path = format!("{DEFAULT_DERIVATION_PATH_PREFIX}{}", 0);
+        let path = format!("{DEFAULT_DERIVATION_PATH_PREFIX}{}", index);
         let salt = builder::generate_entropy_bytes(ARGON2_SALT_LEN as u64)?;
         let nonce = builder::generate_entropy_bytes(XCHACHA_XNONCE_LEN as u64)?;
         let dkey = builder::password_kdf_argon2(password, &salt)?;
         let ciphertext = builder::encrypt_xchacha(mnemonic, &dkey, &nonce)?;
 
         self.vault.ciphertext = ciphertext.clone();
-
-        let mut salt_array = [0u8; ARGON2_SALT_LEN];
-        salt_array.copy_from_slice(salt.as_slice());
-        self.vault.salt = salt_array;
-
-        let mut nonce_array = [0u8; XCHACHA_XNONCE_LEN];
-        nonce_array.copy_from_slice(nonce.as_slice());
-        self.vault.nonce = nonce_array;
+        self.vault.salt = salt.clone();
+        self.vault.nonce = nonce.clone();
         self.expire_time = Some(now + duration); // Simplified implementation
         self.cache_duration = Some(duration);
         self.entropy_bits = Some(128); // Default to 128 bits
 
-        let const_version: [u8; 7] = VERSION_TAG_1.as_bytes().try_into().map_err(|_| CoreError::VaultInvalidVersion { version: VERSION_TAG_1.to_string() })?;
+        let version = VERSION_TAG_1.as_bytes().to_vec();
         Ok((
             Vault {
-                version: const_version,
+                version,
                 ciphertext,
-                salt: salt_array,
-                nonce: nonce_array,
+                salt,
+                nonce,
             },
             address,
             path,

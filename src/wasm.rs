@@ -19,9 +19,7 @@ use hex::encode as hex_encode;
 use wasm_bindgen::prelude::*;
 
 
-use crate::builder;
-
-use crate::{validate, Vault, WalletCore};
+use crate::{Vault, WalletCore};
 
 /// WASM-compatible result type
 type WasmResult<T> = Result<T, JsValue>;
@@ -103,6 +101,22 @@ impl WalletCoreJs {
     /// * `true` if derived key is cached
     pub fn has_derived_key(&self) -> bool {
         self.inner.has_derived_key()
+    }
+
+    /// Lock the wallet by clearing the cached derived key and expire time.
+    ///
+    /// This function provides a way to manually invalidate the cached derived key,
+    /// effectively "logging out" the user.
+    pub fn lock(&mut self) {
+        self.inner.lock()
+    }
+
+    /// Expire cache if needed, zeroize derived key when removed.
+    ///
+    /// # Arguments
+    /// * `now` - The current Unix timestamp
+    pub fn tick(&mut self, now: u64) {
+        self.inner.tick(now)
     }
 
     /// Create a new vault with encrypted mnemonic
@@ -467,6 +481,61 @@ impl WalletCoreJs {
         Ok(signed_tx)
     }
 
+    /// Get vault info (non-sensitive data only)
+    ///
+    /// # Returns
+    /// * Object containing:
+    ///   - `has_ciphertext`: Boolean
+    ///   - `salt_hex`: Salt as hex
+    ///   - `nonce_hex`: Nonce as hex
+    pub fn get_vault_info(&self) -> WasmResult<JsValue> {
+        let result = js_sys::Object::new();
+        js_sys::Reflect::set(
+            &result,
+            &JsValue::from_str("has_ciphertext"),
+            &JsValue::from_bool(!self.inner.vault.ciphertext.is_empty()),
+        )?;
+        js_sys::Reflect::set(
+            &result,
+            &JsValue::from_str("salt_hex"),
+            &JsValue::from_str(&hex_encode(&self.inner.vault.salt)),
+        )?;
+        js_sys::Reflect::set(
+            &result,
+            &JsValue::from_str("nonce_hex"),
+            &JsValue::from_str(&hex_encode(&self.inner.vault.nonce)),
+        )?;
 
+        Ok(result.into())
+    }
+}
+
+/// Validate a mnemonic phrase
+///
+/// # Arguments
+/// * `mnemonic` - The mnemonic phrase to validate
+///
+/// # Returns
+/// * Boolean indicating if the mnemonic is valid
+#[wasm_bindgen]
+pub fn validate_mnemonic(mnemonic: &str) -> bool {
+    crate::validate::validate_mnemonic(mnemonic).is_ok()
+}
+
+/// Generate a random mnemonic
+///
+/// # Arguments
+/// * `entropy_bits` - Entropy bits (128 or 256)
+///
+/// # Returns
+/// * Mnemonic phrase string
+#[wasm_bindgen]
+pub fn generate_mnemonic(entropy_bits: u64) -> WasmResult<String> {
+    crate::validate::validate_entropy(entropy_bits).map_err(JsValue::from)?;
+
+    let entropy = crate::builder::generate_entropy_bits(entropy_bits).map_err(JsValue::from)?;
+    let mnemonic = crate::builder::entropy_to_mnemonic(&entropy).map_err(JsValue::from)?;
+
+    Ok((*mnemonic).clone())
 }
 

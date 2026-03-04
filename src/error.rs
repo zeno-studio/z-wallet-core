@@ -3,6 +3,16 @@ use core::fmt;
 #[cfg(feature = "wasm")]
 use alloc::string::ToString;
 
+#[cfg(feature = "wasm")]
+use wasm_bindgen::JsValue;
+
+#[cfg(feature = "wasm")]
+impl From<CoreError> for JsValue {
+    fn from(err: CoreError) -> JsValue {
+        JsValue::from_str(&err.to_string())
+    }
+}
+
 /// CoreError carries a numeric code and a human-readable message.
 /// Internally we use strong typed variants; externally you can use `code()` and `message()`.
 #[derive(Debug)]
